@@ -17,7 +17,7 @@ export default function HomePage() {
                     <h1 className="hero-title">ISCGP Awards 2025</h1>
                     <p className="hero-subtitle">
                         Vinh danh những cá nhân và dự án xuất sắc nhất năm 2025.
-                        Hãy cùng dự đoán cho những người xứng đáng!
+                        Hãy cùng dự đoán những người xứng đáng!
                     </p>
 
                     <TotalPrize />
@@ -105,18 +105,6 @@ export default function HomePage() {
                     </div>
                 </div>
             </section>
-
-            {/* Footer */}
-            <footer style={{
-                padding: '2rem 0',
-                borderTop: '1px solid var(--glass-border)',
-                textAlign: 'center',
-                color: 'var(--text-muted)'
-            }}>
-                <div className="container">
-                    <p>© 2025 ISCGP Awards. Made with ❤️ for our amazing team.</p>
-                </div>
-            </footer>
         </main>
     )
 }
