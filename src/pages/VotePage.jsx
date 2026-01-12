@@ -6,7 +6,7 @@ import VoteSummary from '../components/VoteSummary'
 import { categories, fetchNomineesForCategory, formatCurrency } from '../lib/supabase'
 
 export default function VotePage() {
-    const { user, signInDemo, canVote, permissionMessage, permissionLoading } = useAuth()
+    const { user, signInWithGoogle, canVote, permissionMessage, permissionLoading } = useAuth()
     const { selectedCount, TOTAL_CATEGORIES, VOTE_COST, selections } = useVote()
     const [activeCategory, setActiveCategory] = useState(categories[0])
     const [activeSubCategory, setActiveSubCategory] = useState(
@@ -124,8 +124,8 @@ export default function VotePage() {
                 <div className="container" style={{ marginBottom: '1rem' }}>
                     <div className="login-prompt">
                         <span>⚠️ Bạn cần đăng nhập để bình chọn</span>
-                        <button onClick={signInDemo} className="btn btn-primary btn-sm">
-                            Đăng nhập ngay
+                        <button onClick={signInWithGoogle} className="btn btn-primary btn-sm">
+                            Đăng nhập với Google
                         </button>
                     </div>
                 </div>

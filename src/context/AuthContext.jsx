@@ -93,19 +93,7 @@ export function AuthProvider({ children }) {
         googleAuth.logout()
     }
 
-    // For demo mode without any auth
-    const signInDemo = () => {
-        const demoUser = {
-            id: 'demo-user',
-            email: 'demo@iscgp.com',
-            user_metadata: {
-                full_name: 'Demo User',
-                avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Demo'
-            }
-        }
-        setUser(demoUser)
-        localStorage.setItem('demoUser', JSON.stringify(demoUser))
-    }
+
 
     const value = {
         // Auth state
@@ -115,7 +103,7 @@ export function AuthProvider({ children }) {
         // Auth actions
         signInWithGoogle,
         signOut,
-        signInDemo,
+
         isDemoMode,
 
         // Vote permission

@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function Header() {
-    const { user, userName, userEmail, userAvatar, signOut, signInWithGoogle, signInDemo, voteUser } = useAuth()
+    const { user, userName, userEmail, userAvatar, signOut, signInWithGoogle, voteUser } = useAuth()
     const location = useLocation()
 
     const isActive = (path) => location.pathname === path
@@ -69,9 +69,7 @@ export default function Header() {
                             <button onClick={signInWithGoogle} className="btn btn-primary btn-sm">
                                 Đăng nhập Google
                             </button>
-                            <button onClick={signInDemo} className="btn btn-secondary btn-sm" style={{ marginLeft: '0.5rem' }}>
-                                Demo
-                            </button>
+
                         </>
                     )}
                 </div>

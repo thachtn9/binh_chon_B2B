@@ -5,7 +5,7 @@ import { formatCurrency, formatDate } from '../lib/supabase'
 import { Link } from 'react-router-dom'
 
 export default function HistoryPage() {
-    const { user, userEmail, signInDemo, voteUser } = useAuth()
+    const { user, userEmail, signInWithGoogle, voteUser } = useAuth()
     const { getUserHistory, getUserTotalSpent, voteHistory, totalPrize, totalVotes, loadUserHistory } = useVote()
     const [historyLoading, setHistoryLoading] = useState(false)
 
@@ -35,9 +35,9 @@ export default function HistoryPage() {
                     <p className="login-subtitle">
                         Bạn cần đăng nhập để xem lịch sử dự đoán của mình
                     </p>
-                    <button onClick={signInDemo} className="google-btn">
-                        <span>🔑</span>
-                        Đăng nhập Demo
+                    <button onClick={signInWithGoogle} className="google-btn">
+                        <span>🔐</span>
+                        Đăng nhập với Google
                     </button>
                 </div>
             </main>
