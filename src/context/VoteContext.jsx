@@ -40,6 +40,7 @@ export function VoteProvider({ children }) {
     const [totalVotes, setTotalVotes] = useState(0)
     const [settings, setSettings] = useState(defaultSettings)
     const [settingsLoading, setSettingsLoading] = useState(true)
+    const [donateAmount, setDonateAmount] = useState(0)
 
     // Nominees from database
     const [nominees, setNominees] = useState(sampleNominees)
@@ -67,6 +68,7 @@ export function VoteProvider({ children }) {
             try {
                 const dbSettings = await getSettings()
                 setSettings(dbSettings)
+                setDonateAmount(dbSettings.donate_amount || 0)
             } catch (error) {
                 console.error('Error loading settings:', error)
             } finally {
@@ -408,7 +410,12 @@ export function VoteProvider({ children }) {
         remainingItems: getRemainingItems(),
         remainingCount: TOTAL_CATEGORIES - Object.keys(selections).length,
         voteAmount: VOTE_COST,
-        voteAmountFormatted: formatCurrency(VOTE_COST)
+        voteAmountFormatted: formatCurrency(VOTE_COST),
+
+        // Donate and total prize
+        donateAmount,
+        totalPrizeWithDonate: totalPrize + donateAmount,
+        totalPrizeWithDonateFormatted: formatCurrency(totalPrize + donateAmount)
     }
 
     return (

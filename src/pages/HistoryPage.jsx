@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom'
 
 export default function HistoryPage() {
     const { user, userEmail, signInWithGoogle, voteUser } = useAuth()
-    const { getUserHistory, getUserTotalSpent, voteHistory, totalPrize, totalVotes, loadUserHistory } = useVote()
+    const { getUserHistory, getUserTotalSpent, voteHistory, totalPrizeWithDonate, totalVotes, loadUserHistory } = useVote()
     const [historyLoading, setHistoryLoading] = useState(false)
 
     // Auto-load user history from database when page loads
@@ -75,9 +75,9 @@ export default function HistoryPage() {
                         </div>
                         <div className="stat-card" style={{ borderColor: 'var(--gold)' }}>
                             <div className="stat-value" style={{ color: 'var(--gold)' }}>
-                                {formatCurrency(totalPrize)}
+                                {formatCurrency(totalPrizeWithDonate)}
                             </div>
-                            <div className="stat-label">Tổng giải thưởng ({totalVotes} phiếu)</div>
+                            <div className="stat-label">Tổng giải thưởng</div>
                         </div>
                     </div>
 

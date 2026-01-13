@@ -89,6 +89,9 @@ export const defaultSettings = {
     // Số tiền mỗi lần dự đoán (VND)
     vote_cost: 10000,
 
+    // Số tiền donate thêm vào giải thưởng (VND)
+    donate_amount: 0,
+
     // Tên sự kiện
     event_name: 'ISCGP Awards 2025',
 

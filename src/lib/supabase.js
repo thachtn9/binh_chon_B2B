@@ -281,6 +281,7 @@ export async function getSettings() {
       voting_start_time: data.voting_start_time,
       voting_end_time: data.voting_end_time,
       vote_cost: data.vote_cost,
+      donate_amount: data.donate_amount || 0,
       event_name: data.event_name,
       event_description: data.event_description,
       is_active: data.is_active
