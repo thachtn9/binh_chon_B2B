@@ -37,11 +37,24 @@ export default function VotePage() {
         loadNominees()
     }, [activeCategory, activeSubCategory])
 
-    // Filter nominees by search term
-    const filteredNominees = nominees.filter(nominee =>
-        nominee.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        nominee.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    // Filter nominees by search term and sort (current user first)
+    const filteredNominees = nominees
+        .filter(nominee =>
+            nominee.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            nominee.description?.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        .sort((a, b) => {
+            // Đưa chính mình (user đang đăng nhập) lên đầu tiên
+            const userEmail = user?.email?.toLowerCase()
+            if (!userEmail) return 0
+
+            const aIsCurrentUser = a.email?.toLowerCase() === userEmail
+            const bIsCurrentUser = b.email?.toLowerCase() === userEmail
+
+            if (aIsCurrentUser && !bIsCurrentUser) return -1
+            if (!aIsCurrentUser && bIsCurrentUser) return 1
+            return 0
+        })
 
     // Trigger animation when category or sub-category changes
     const handleCategoryChange = (category) => {

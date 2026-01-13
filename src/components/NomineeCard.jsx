@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useVote } from '../context/VoteContext'
 import { useAuth } from '../context/AuthContext'
 
@@ -5,9 +6,27 @@ export default function NomineeCard({ nominee, categoryId, showVotes = false }) 
     const { selections, selectNominee } = useVote()
     const { canVote, user } = useAuth()
     const isSelected = selections[categoryId] === nominee.id
+    const [showParticles, setShowParticles] = useState(false)
+    const [justSelected, setJustSelected] = useState(false)
+
+    // Kiểm tra xem nominee có phải là chính mình không
+    const isCurrentUser = user?.email?.toLowerCase() === nominee.email?.toLowerCase()
 
     // Chỉ cho phép click nếu đã đăng nhập và có quyền bình chọn
     const canClickToVote = user && canVote
+
+    // Track when selection changes to trigger animation
+    useEffect(() => {
+        if (isSelected) {
+            setJustSelected(true)
+            setShowParticles(true)
+            const timer = setTimeout(() => {
+                setJustSelected(false)
+                setShowParticles(false)
+            }, 1000)
+            return () => clearTimeout(timer)
+        }
+    }, [isSelected])
 
     const handleClick = () => {
         if (!canClickToVote) return
@@ -49,15 +68,44 @@ export default function NomineeCard({ nominee, categoryId, showVotes = false }) 
         return colors[index]
     }
 
+    // Generate random particles
+    const particles = Array.from({ length: 12 }, (_, i) => ({
+        id: i,
+        x: Math.random() * 100 - 50,
+        y: Math.random() * 100 - 50,
+        size: Math.random() * 8 + 4,
+        color: ['#fbbf24', '#f59e0b', '#6366f1', '#8b5cf6', '#ec4899'][Math.floor(Math.random() * 5)],
+        delay: Math.random() * 0.3
+    }))
+
     return (
         <div
-            className={`nominee-card ${isSelected ? 'selected' : ''} ${!canClickToVote ? 'disabled' : ''}`}
+            className={`nominee-card ${isSelected ? 'selected' : ''} ${!canClickToVote ? 'disabled' : ''} ${justSelected ? 'just-selected' : ''} ${isCurrentUser ? 'is-me' : ''}`}
             onClick={handleClick}
             style={{
                 cursor: canClickToVote ? 'pointer' : 'not-allowed',
                 opacity: canClickToVote ? 1 : 0.6
             }}
         >
+            {/* Particle effect on selection */}
+            {showParticles && (
+                <div className="selection-particles">
+                    {particles.map(p => (
+                        <span
+                            key={p.id}
+                            className="particle"
+                            style={{
+                                '--x': `${p.x}px`,
+                                '--y': `${p.y}px`,
+                                '--size': `${p.size}px`,
+                                '--color': p.color,
+                                '--delay': `${p.delay}s`
+                            }}
+                        />
+                    ))}
+                </div>
+            )}
+
             {hasValidAvatar ? (
                 <img
                     src={nominee.url_avatar}
@@ -100,3 +148,4 @@ export default function NomineeCard({ nominee, categoryId, showVotes = false }) 
         </div>
     )
 }
+

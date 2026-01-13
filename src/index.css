@@ -1324,6 +1324,17 @@ a:hover {
   align-content: start;
 }
 
+/* When there's a selected card, slightly dim others */
+.nominees-grid:has(.nominee-card.selected) .nominee-card:not(.selected) {
+  opacity: 0.75;
+  filter: brightness(0.9);
+}
+
+.nominees-grid:has(.nominee-card.selected) .nominee-card:not(.selected):hover {
+  opacity: 1;
+  filter: brightness(1);
+}
+
 .nominees-grid .nominee-card {
   display: flex;
   align-items: center;
@@ -1333,41 +1344,128 @@ a:hover {
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+  transform-origin: center center;
+}
+
+/* Shimmer effect overlay */
+.nominees-grid .nominee-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.05) 50%,
+      transparent 70%);
+  transform: translateX(-100%) rotate(45deg);
+  transition: transform 0.6s ease;
+}
+
+.nominees-grid .nominee-card:hover::before {
+  transform: translateX(100%) rotate(45deg);
+}
+
+/* Ripple effect on click */
+.nominees-grid .nominee-card::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: all 0.5s ease-out;
+}
+
+.nominees-grid .nominee-card:active::after {
+  width: 300px;
+  height: 300px;
+  opacity: 1;
+  transition: width 0s, height 0s, opacity 0s;
 }
 
 .nominees-grid .nominee-card:hover {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
   border-color: rgba(99, 102, 241, 0.3);
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 8px 25px rgba(0, 0, 0, 0.2),
+    0 0 15px rgba(99, 102, 241, 0.1);
 }
 
+/* ===== SELECTED STATE - Elegant Style ===== */
 .nominees-grid .nominee-card.selected {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.15) 100%);
   border-color: var(--primary);
+  border-width: 2px;
+  z-index: 10;
   box-shadow:
-    0 0 25px rgba(99, 102, 241, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 0 0 2px rgba(99, 102, 241, 0.4),
+    0 0 20px rgba(99, 102, 241, 0.2),
+    0 8px 25px rgba(0, 0, 0, 0.25);
 }
 
+@keyframes selectedPulse {
+
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(99, 102, 241, 0.5),
+      0 0 40px rgba(99, 102, 241, 0.3),
+      0 20px 50px rgba(0, 0, 0, 0.3);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(99, 102, 241, 0.4),
+      0 0 60px rgba(99, 102, 241, 0.4),
+      0 20px 50px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Selected card shimmer animation */
+.nominees-grid .nominee-card.selected::before {
+  animation: shimmerSelected 3s ease infinite;
+}
+
+@keyframes shimmerSelected {
+  0% {
+    transform: translateX(-100%) rotate(45deg);
+  }
+
+  50%,
+  100% {
+    transform: translateX(100%) rotate(45deg);
+  }
+}
+
+/* ===== AVATAR STYLES ===== */
 .nominees-grid .nominee-card .nominee-avatar,
 .nominees-grid .nominee-card .nominee-avatar-placeholder {
-  width: 56px;
-  height: 56px;
-  min-width: 56px;
-  border-radius: 14px;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: 12px;
   object-fit: cover;
   border: 2px solid rgba(255, 255, 255, 0.15);
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
 }
 
 .nominees-grid .nominee-card .nominee-avatar-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: white;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
@@ -1375,16 +1473,25 @@ a:hover {
 
 .nominees-grid .nominee-card:hover .nominee-avatar,
 .nominees-grid .nominee-card:hover .nominee-avatar-placeholder {
-  transform: scale(1.05);
   border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
+/* Selected avatar - highlighted border */
 .nominees-grid .nominee-card.selected .nominee-avatar,
 .nominees-grid .nominee-card.selected .nominee-avatar-placeholder {
-  border-color: var(--primary);
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+  border-color: var(--gold);
+  box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);
 }
 
+/* ===== NOMINEE INFO CONTAINER ===== */
+.nominees-grid .nominee-card .nominee-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ===== NAME & INFO ANIMATIONS ===== */
 .nominees-grid .nominee-card .nominee-name {
   font-size: 0.9rem;
   font-weight: 600;
@@ -1393,7 +1500,61 @@ a:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 180px;
+  transition: all 0.3s ease;
+}
+
+.nominees-grid .nominee-card.selected .nominee-name {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+/* ===== "BẠN" BADGE ===== */
+.nominees-grid .nominee-card .nominee-name .you-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  color: white;
+  border-radius: 10px;
+  vertical-align: middle;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+
+  0%,
+  100% {
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 2px 15px rgba(16, 185, 129, 0.6);
+  }
+}
+
+/* ===== HIGHLIGHT CARD IS-ME ===== */
+.nominees-grid .nominee-card.is-me {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(52, 211, 153, 0.05) 100%);
+}
+
+.nominees-grid .nominee-card.is-me:not(.selected):hover {
+  border-color: rgba(16, 185, 129, 0.6);
+  box-shadow:
+    0 0 20px rgba(16, 185, 129, 0.2),
+    0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.nominees-grid .nominee-card.is-me::before {
+  background: linear-gradient(45deg,
+      transparent 30%,
+      rgba(16, 185, 129, 0.08) 50%,
+      transparent 70%);
 }
 
 .nominees-grid .nominee-card .nominee-role {
@@ -1401,6 +1562,12 @@ a:hover {
   opacity: 0.8;
   letter-spacing: 0.3px;
   color: var(--text-muted);
+  transition: all 0.3s ease;
+}
+
+.nominees-grid .nominee-card.selected .nominee-role {
+  color: var(--primary-light);
+  opacity: 1;
 }
 
 .nominees-grid .nominee-card .nominee-description {
@@ -1410,25 +1577,122 @@ a:hover {
   line-height: 1.3;
 }
 
+/* ===== CHECK ICON ===== */
 .nominees-grid .nominee-card .check-icon {
   width: 22px;
   height: 22px;
+  min-width: 22px;
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.15);
   font-size: 0.7rem;
-  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
 }
 
 .nominees-grid .nominee-card.selected .check-icon {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-  border-color: var(--primary);
-  color: white;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+  background: linear-gradient(135deg, var(--gold) 0%, #f59e0b 100%);
+  border-color: var(--gold);
+  color: var(--bg-darkest);
+  font-weight: bold;
+  box-shadow: 0 2px 10px rgba(251, 191, 36, 0.4);
 }
 
 .nominees-grid .empty-state {
   grid-column: 1 / -1;
   padding: var(--spacing-2xl);
+}
+
+/* ===== JUST SELECTED ANIMATION ===== */
+.nominees-grid .nominee-card.just-selected {
+  animation: selectPop 0.4s ease-out;
+}
+
+@keyframes selectPop {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.08);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ===== PARTICLE EFFECT ===== */
+.selection-particles {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.selection-particles .particle {
+  position: absolute;
+  width: var(--size);
+  height: var(--size);
+  background: var(--color);
+  border-radius: 50%;
+  animation: particleExplode 0.8s ease-out forwards;
+  animation-delay: var(--delay);
+  opacity: 0;
+}
+
+@keyframes particleExplode {
+  0% {
+    transform: translate(0, 0) scale(0);
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(var(--x), var(--y)) scale(1);
+    opacity: 0;
+  }
+}
+
+/* ===== SPARKLE RING EFFECT ===== */
+.nominees-grid .nominee-card.selected::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.3), transparent, rgba(99, 102, 241, 0.3)) border-box;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: sparkleRing 2s linear infinite;
+}
+
+@keyframes sparkleRing {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 /* =============================================
