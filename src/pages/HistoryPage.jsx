@@ -73,12 +73,7 @@ export default function HistoryPage() {
                             </div>
                             <div className="stat-label">Tổng đóng góp</div>
                         </div>
-                        <div className="stat-card" style={{ borderColor: 'var(--gold)' }}>
-                            <div className="stat-value" style={{ color: 'var(--gold)' }}>
-                                {formatCurrency(totalPrizeWithDonate)}
-                            </div>
-                            <div className="stat-label">Tổng giải thưởng</div>
-                        </div>
+
                     </div>
 
                     {/* History List */}
