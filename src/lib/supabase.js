@@ -550,3 +550,53 @@ export async function getVoterRankingReport() {
   return data || []
 }
 
+// =============================================
+// ADMIN MANAGEMENT API
+// =============================================
+
+/**
+ * Get all users for admin management
+ */
+export async function getAllUsersForAdmin() {
+  if (!supabase) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, user_name, full_name, email, role, is_admin, url_avatar, created_at')
+    .order('role')
+    .order('user_name')
+
+  if (error) {
+    console.error('Error fetching users for admin:', error)
+    return []
+  }
+
+  return data || []
+}
+
+/**
+ * Update user admin status
+ * @param {string} userId - UUID of the user
+ * @param {boolean} isAdmin - New admin status
+ */
+export async function updateUserAdminStatus(userId, isAdmin) {
+  if (!supabase) {
+    throw new Error('Demo mode: Cannot update admin status')
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .update({ is_admin: isAdmin })
+    .eq('id', userId)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to update admin status: ${error.message}`)
+  }
+
+  return data
+}
+
