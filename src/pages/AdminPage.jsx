@@ -1,17 +1,24 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { getAllVoteSessions, getVoterRankingReport, getAllUsersForAdmin, updateUserAdminStatus, formatCurrency, formatDate } from '../lib/supabase'
+import { getAllVoteSessions, getVoterRankingReport, getAllUsersForAdmin, updateUserAdminStatus, formatCurrency, formatDate, findCorrectPredictions, getNomineesForWinnerSelection } from '../lib/supabase'
+import { categories } from '../config/votingConfig'
 import { useNavigate } from 'react-router-dom'
 
 export default function AdminPage() {
     const { user, voteUser, loading } = useAuth()
     const navigate = useNavigate()
-    const [activeTab, setActiveTab] = useState('votes') // 'votes', 'users', or 'admins'
+    const [activeTab, setActiveTab] = useState('votes') // 'votes', 'users', 'admins', or 'results'
     const [votesData, setVotesData] = useState([])
     const [usersData, setUsersData] = useState([])
     const [adminsData, setAdminsData] = useState([])
     const [isLoadingData, setIsLoadingData] = useState(true)
     const [updatingUserId, setUpdatingUserId] = useState(null)
+
+    // Results tab states
+    const [allNominees, setAllNominees] = useState([])
+    const [selectedWinners, setSelectedWinners] = useState({}) // { category_id: nominee_id }
+    const [predictionResults, setPredictionResults] = useState([])
+    const [isSearching, setIsSearching] = useState(false)
 
     useEffect(() => {
         // Redirect if not admin
@@ -27,14 +34,16 @@ export default function AdminPage() {
     const fetchData = async () => {
         setIsLoadingData(true)
         try {
-            const [sessions, users, allUsers] = await Promise.all([
+            const [sessions, users, allUsers, nominees] = await Promise.all([
                 getAllVoteSessions(),
                 getVoterRankingReport(),
-                getAllUsersForAdmin()
+                getAllUsersForAdmin(),
+                getNomineesForWinnerSelection()
             ])
             setVotesData(sessions)
             setUsersData(users)
             setAdminsData(allUsers)
+            setAllNominees(nominees)
         } catch (error) {
             console.error('Error fetching admin data:', error)
         } finally {
@@ -60,6 +69,66 @@ export default function AdminPage() {
         } finally {
             setUpdatingUserId(null)
         }
+    }
+
+    // Handle winner selection for a category
+    const handleWinnerSelect = (categoryId, nomineeId) => {
+        setSelectedWinners(prev => ({
+            ...prev,
+            [categoryId]: nomineeId
+        }))
+    }
+
+    // Find correct predictions
+    const handleFindPredictions = async () => {
+        if (Object.keys(selectedWinners).length === 0) {
+            alert('Vui lòng chọn ít nhất một người được vinh danh!')
+            return
+        }
+
+        setIsSearching(true)
+        try {
+            const results = await findCorrectPredictions(selectedWinners)
+            setPredictionResults(results)
+        } catch (error) {
+            console.error('Error finding predictions:', error)
+            alert('Có lỗi xảy ra: ' + error.message)
+        } finally {
+            setIsSearching(false)
+        }
+    }
+
+    // Get nominees for a specific category/role
+    const getNomineesForCategory = (category, subCategory = null) => {
+        const roleFilter = subCategory ? [subCategory.role] : category.role_filter
+        return allNominees.filter(n => roleFilter.includes(n.role))
+    }
+
+    // Get all selection categories (including sub-categories)
+    const getAllSelectionCategories = () => {
+        const selections = []
+        categories.forEach(cat => {
+            if (cat.sub_categories) {
+                cat.sub_categories.forEach(sub => {
+                    selections.push({
+                        id: sub.id,
+                        name: `${cat.name} - ${sub.name}`,
+                        icon: cat.icon,
+                        role_filter: [sub.role],
+                        parent: cat
+                    })
+                })
+            } else {
+                selections.push({
+                    id: cat.id,
+                    name: cat.name,
+                    icon: cat.icon,
+                    role_filter: cat.role_filter,
+                    parent: null
+                })
+            }
+        })
+        return selections
     }
 
     if (loading) return <div className="container" style={{ paddingTop: '2rem' }}>Loading...</div>
@@ -88,31 +157,37 @@ export default function AdminPage() {
             </div>
 
             {/* Tabs */}
-            <div className="admin-tabs" style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+            <div className="admin-tabs" style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
                 <button
                     className={`btn ${activeTab === 'votes' ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => setActiveTab('votes')}
                 >
-                    🗳️ Các Phiên Dự đoán ({votesData.length})
+                    🗳️ Phiên Dự đoán ({votesData.length})
                 </button>
                 <button
                     className={`btn ${activeTab === 'users' ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => setActiveTab('users')}
                 >
-                    👥 Thống kê User ({usersData.length})
+                    👥 Thống kê ({usersData.length})
                 </button>
                 <button
                     className={`btn ${activeTab === 'admins' ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => setActiveTab('admins')}
                 >
-                    🔐 Phân quyền Admin ({adminsData.filter(u => u.is_admin).length}/{adminsData.length})
+                    🔐 Phân quyền
+                </button>
+                <button
+                    className={`btn ${activeTab === 'results' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setActiveTab('results')}
+                >
+                    🏆 Tìm Người Đoán Đúng
                 </button>
                 <button
                     className="btn btn-secondary"
                     onClick={fetchData}
                     title="Làm mới dữ liệu"
                 >
-                    🔄 Refresh
+                    🔄
                 </button>
             </div>
 
@@ -332,6 +407,152 @@ export default function AdminPage() {
                                     </tbody>
                                 </table>
                             </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'results' && (
+                        <div className="card">
+                            <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                🏆 Tìm Người Dự Đoán Chính Xác
+                            </h3>
+                            <p style={{ color: '#888', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+                                Chọn người được vinh danh cho mỗi hạng mục, sau đó nhấn "Tìm kiếm" để xem ai đã dự đoán đúng.
+                            </p>
+
+                            {/* Winner Selection Grid */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                                {getAllSelectionCategories().map(category => (
+                                    <div key={category.id} style={{
+                                        padding: '1rem',
+                                        background: 'rgba(255,255,255,0.03)',
+                                        borderRadius: '12px',
+                                        border: selectedWinners[category.id] ? '2px solid var(--gold)' : '1px solid rgba(255,255,255,0.1)'
+                                    }}>
+                                        <div style={{ marginBottom: '0.5rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <span>{category.icon}</span>
+                                            <span>{category.name}</span>
+                                            {selectedWinners[category.id] && <span style={{ color: 'var(--gold)' }}>✓</span>}
+                                        </div>
+                                        <select
+                                            value={selectedWinners[category.id] || ''}
+                                            onChange={(e) => handleWinnerSelect(category.id, e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '0.5rem',
+                                                borderRadius: '8px',
+                                                background: 'rgba(0,0,0,0.3)',
+                                                border: '1px solid rgba(255,255,255,0.15)',
+                                                color: 'white',
+                                                fontSize: '0.9rem'
+                                            }}
+                                        >
+                                            <option value="">-- Chọn người được vinh danh --</option>
+                                            {allNominees
+                                                .filter(n => category.role_filter.includes(n.role))
+                                                .map(nominee => (
+                                                    <option key={nominee.id} value={nominee.id}>
+                                                        {nominee.full_name || nominee.user_name} ({nominee.role})
+                                                    </option>
+                                                ))
+                                            }
+                                        </select>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Search Button */}
+                            <div style={{ marginBottom: '2rem' }}>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={handleFindPredictions}
+                                    disabled={isSearching || Object.keys(selectedWinners).length === 0}
+                                    style={{ marginRight: '1rem' }}
+                                >
+                                    {isSearching ? '⏳ Đang tìm...' : `🔍 Tìm kiếm (${Object.keys(selectedWinners).length} hạng mục)`}
+                                </button>
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={() => {
+                                        setSelectedWinners({})
+                                        setPredictionResults([])
+                                    }}
+                                >
+                                    🗑️ Xóa tất cả
+                                </button>
+                            </div>
+
+                            {/* Results Table */}
+                            {predictionResults.length > 0 && (
+                                <div>
+                                    <h4 style={{ marginBottom: '1rem', color: 'var(--gold)' }}>
+                                        📊 Kết quả: {predictionResults.length} lượt dự đoán
+                                    </h4>
+                                    <div style={{ overflowX: 'auto' }}>
+                                        <table className="admin-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Hạng</th>
+                                                    <th>Người dự đoán</th>
+                                                    <th>Số hạng mục đúng</th>
+                                                    <th>Hạng mục đoán đúng</th>
+                                                    <th>Thời gian dự đoán</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {predictionResults.map((result, index) => (
+                                                    <tr key={result.session_id} style={{
+                                                        background: index < 3 ? 'rgba(251, 191, 36, 0.1)' : 'transparent'
+                                                    }}>
+                                                        <td>
+                                                            <div style={{
+                                                                width: 28, height: 28,
+                                                                borderRadius: '50%',
+                                                                background: index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : '#666',
+                                                                color: index < 3 ? '#000' : '#fff',
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                fontWeight: 'bold', fontSize: '0.85rem'
+                                                            }}>
+                                                                {index + 1}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div style={{ fontWeight: 'bold' }}>{result.voter_name}</div>
+                                                            <div style={{ fontSize: '0.8em', color: '#888' }}>{result.voter_email}</div>
+                                                        </td>
+                                                        <td>
+                                                            <span style={{
+                                                                fontWeight: 'bold',
+                                                                fontSize: '1.2rem',
+                                                                color: result.correct_count > 0 ? 'var(--gold)' : '#888'
+                                                            }}>
+                                                                {result.correct_count}
+                                                            </span>
+                                                            <span style={{ color: '#888', fontSize: '0.85rem' }}>
+                                                                /{Object.keys(selectedWinners).length}
+                                                            </span>
+                                                            <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: result.correct_count > 0 ? '#10b981' : '#888' }}>
+                                                                ({result.accuracy_percent}%)
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            {result.correct_categories.length > 0 ? (
+                                                                <div style={{ fontSize: '0.85rem' }}>
+                                                                    {result.correct_categories.join(', ')}
+                                                                </div>
+                                                            ) : (
+                                                                <span style={{ color: '#888', fontStyle: 'italic' }}>Không có</span>
+                                                            )}
+                                                        </td>
+                                                        <td style={{ fontSize: '0.85rem', color: '#aaa' }}>
+                                                            {formatDate(result.created_at)}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

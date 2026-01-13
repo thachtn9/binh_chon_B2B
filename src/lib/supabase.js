@@ -600,3 +600,134 @@ export async function updateUserAdminStatus(userId, isAdmin) {
   return data
 }
 
+// =============================================
+// PREDICTION RESULTS API
+// =============================================
+
+/**
+ * Find users who predicted correctly based on selected winners
+ * @param {Object} winners - Object mapping category_id to winner nominee_id
+ * @returns {Array} - Array of users with their correct prediction counts
+ */
+export async function findCorrectPredictions(winners) {
+  if (!supabase) {
+    return []
+  }
+
+  try {
+    // Get all votes with session and voter info
+    const { data: allVotes, error } = await supabase
+      .from('votes')
+      .select(`
+        id,
+        session_id,
+        voter_id,
+        voter_email,
+        category_id,
+        category_name,
+        nominee_id,
+        vote_sessions (
+          id,
+          voter_name,
+          voter_email,
+          total_amount,
+          created_at
+        )
+      `)
+      .order('session_id')
+
+    if (error) {
+      console.error('Error fetching votes:', error)
+      return []
+    }
+
+    // Group votes by session
+    const sessionMap = new Map()
+
+    allVotes.forEach(vote => {
+      const sessionId = vote.session_id
+      if (!sessionMap.has(sessionId)) {
+        sessionMap.set(sessionId, {
+          session_id: sessionId,
+          voter_id: vote.voter_id,
+          voter_name: vote.vote_sessions?.voter_name || 'Unknown',
+          voter_email: vote.voter_email || vote.vote_sessions?.voter_email,
+          total_amount: vote.vote_sessions?.total_amount || 0,
+          created_at: vote.vote_sessions?.created_at,
+          votes: [],
+          correct_count: 0,
+          total_categories: 0
+        })
+      }
+
+      const session = sessionMap.get(sessionId)
+      session.votes.push({
+        category_id: vote.category_id,
+        category_name: vote.category_name,
+        nominee_id: vote.nominee_id
+      })
+    })
+
+    // Calculate correct predictions for each session
+    const results = []
+    const totalWinnerCategories = Object.keys(winners).length
+
+    sessionMap.forEach(session => {
+      let correctCount = 0
+      const correctCategories = []
+
+      session.votes.forEach(vote => {
+        if (winners[vote.category_id] && winners[vote.category_id] === vote.nominee_id) {
+          correctCount++
+          correctCategories.push(vote.category_name)
+        }
+      })
+
+      session.correct_count = correctCount
+      session.total_categories = session.votes.length
+      session.correct_categories = correctCategories
+      session.accuracy_percent = totalWinnerCategories > 0
+        ? Math.round((correctCount / totalWinnerCategories) * 100)
+        : 0
+
+      results.push(session)
+    })
+
+    // Sort by correct count (descending), then by created_at (ascending for earlier predictions)
+    results.sort((a, b) => {
+      if (b.correct_count !== a.correct_count) {
+        return b.correct_count - a.correct_count
+      }
+      return new Date(a.created_at) - new Date(b.created_at)
+    })
+
+    return results
+  } catch (err) {
+    console.error('Error finding correct predictions:', err)
+    return []
+  }
+}
+
+/**
+ * Get all nominees grouped by role for winner selection
+ */
+export async function getNomineesForWinnerSelection() {
+  if (!supabase) {
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, user_name, full_name, role, url_avatar')
+    .in('role', ['PM', 'BA', 'DEV', 'PROJECT'])
+    .order('role')
+    .order('user_name')
+
+  if (error) {
+    console.error('Error fetching nominees for selection:', error)
+    return []
+  }
+
+  return data || []
+}
+
