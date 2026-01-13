@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import * as XLSX from "xlsx";
 import { useAuth } from "../context/AuthContext";
 import { getAllVoteSessions, getVoterRankingReport, getAllUsersForAdmin, updateUserAdminStatus, formatCurrency, formatDate, findCorrectPredictions, getNomineesForWinnerSelection, getNomineeStatistics, getSettings, updateSettings } from "../lib/supabase";
 import { categories } from "../config/votingConfig";
@@ -121,6 +122,75 @@ export default function AdminPage() {
     }));
   };
 
+  // Export to Excel
+  const handleExportExcel = () => {
+    // 1. Prepare Users Data
+    const usersSheetData = usersData.map((user, index) => ({
+      STT: index + 1,
+      "Họ tên": user.voter_full_name || user.voter_name,
+      Email: user.voter_email,
+      "Tổng phiếu": user.total_votes,
+      "Số lượt dự đoán": user.total_sessions,
+      "Số hạng mục đã vote": user.categories_voted,
+      "Thời gian vote cuối": user.last_vote_time ? new Date(user.last_vote_time).toLocaleString("vi-VN") : "",
+      "Tổng chi (VND)": user.total_spent,
+    }));
+
+    // 2. Prepare Votes (Sessions) Data
+    const votesSheetData = votesData.map((session, index) => {
+      // Format votes details
+      const votesDetail = session.votes?.map((v) => `${v.category_name}: ${v.nominee?.user_name} (${v.nominee?.role})`).join(";\n");
+
+      return {
+        STT: index + 1,
+        "Thời gian": session.created_at ? new Date(session.created_at).toLocaleString("vi-VN") : "",
+        "Người dự đoán": session.voter_name || "Anonymous",
+        Email: session.voter_email,
+        "Số hạng mục": session.total_categories,
+        "Tổng tiền (VND)": session.total_amount,
+        "Chi tiết dự đoán": votesDetail,
+      };
+    });
+
+    // Create workbook and sheets
+    const workbook = XLSX.utils.book_new();
+
+    const usersWorksheet = XLSX.utils.json_to_sheet(usersSheetData);
+    XLSX.utils.book_append_sheet(workbook, usersWorksheet, "Thống kê Người dùng");
+
+    const votesWorksheet = XLSX.utils.json_to_sheet(votesSheetData);
+
+    // Set column width
+    const usersCols = [
+      { wch: 5 }, // STT
+      { wch: 20 }, // Mark
+      { wch: 30 }, // Email
+      { wch: 10 }, // Tong phieu
+      { wch: 15 }, // So luot
+      { wch: 20 }, // So hang muc
+      { wch: 20 }, // Thoi gian
+      { wch: 15 }, // Tong chi
+    ];
+    usersWorksheet["!cols"] = usersCols;
+
+    const votesCols = [
+      { wch: 5 }, // STT
+      { wch: 20 }, // Thoi gian
+      { wch: 20 }, // Nguoi du doan
+      { wch: 30 }, // Email
+      { wch: 15 }, // So hang muc
+      { wch: 15 }, // Tong tien
+      { wch: 80 }, // Chi tiet
+    ];
+    votesWorksheet["!cols"] = votesCols;
+
+    XLSX.utils.book_append_sheet(workbook, votesWorksheet, "Chi tiết Phiên dự đoán");
+
+    // Generate filename with timestamp
+    const dateStr = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `thong_ke_binh_chon_${dateStr}.xlsx`);
+  };
+
   // Find correct predictions
   const handleFindPredictions = async () => {
     if (Object.keys(selectedWinners).length === 0) {
@@ -219,7 +289,10 @@ export default function AdminPage() {
         <button className={`btn ${activeTab === "results" ? "btn-primary" : "btn-secondary"}`} onClick={() => setActiveTab("results")}>
           🏆 Tìm Người Đoán Đúng
         </button>
-        <button className="btn btn-secondary" onClick={fetchData} title="Làm mới dữ liệu">
+        <button className="btn btn-secondary" onClick={handleExportExcel}>
+          📤 Xuất Excel
+        </button>
+        <button className="btn btn-secondary " onClick={fetchData} title="Làm mới dữ liệu">
           🔄
         </button>
       </div>
