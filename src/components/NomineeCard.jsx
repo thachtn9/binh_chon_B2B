@@ -3,7 +3,7 @@ import { useVote } from '../context/VoteContext'
 import { useAuth } from '../context/AuthContext'
 
 export default function NomineeCard({ nominee, categoryId, showVotes = false }) {
-    const { selections, selectNominee } = useVote()
+    const { selections, selectNominee, isVotingOpen } = useVote()
     const { canVote, user } = useAuth()
     const isSelected = selections[categoryId] === nominee.id
     const [showParticles, setShowParticles] = useState(false)
@@ -12,8 +12,8 @@ export default function NomineeCard({ nominee, categoryId, showVotes = false }) 
     // Kiểm tra xem nominee có phải là chính mình không
     const isCurrentUser = user?.email?.toLowerCase() === nominee.email?.toLowerCase()
 
-    // Chỉ cho phép click nếu đã đăng nhập và có quyền bình chọn
-    const canClickToVote = user && canVote
+    // Chỉ cho phép click nếu đã đăng nhập, có quyền bình chọn và voting đang mở
+    const canClickToVote = user && canVote && isVotingOpen
 
     // Track when selection changes to trigger animation
     useEffect(() => {

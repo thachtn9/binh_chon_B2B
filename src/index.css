@@ -51,7 +51,7 @@
   --transition-slow: 350ms ease;
 
   /* Font */
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
@@ -303,7 +303,7 @@ a:hover {
 }
 
 .hero::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -50%;
   left: 50%;
@@ -348,7 +348,6 @@ a:hover {
 }
 
 @keyframes pulse-glow {
-
   0%,
   100% {
     box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
@@ -845,7 +844,7 @@ a:hover {
 }
 
 .vote-header::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 50%;
@@ -985,7 +984,7 @@ a:hover {
 }
 
 .category-tab::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
@@ -1005,9 +1004,7 @@ a:hover {
 .category-tab.active {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.15) 100%);
   border-color: var(--primary);
-  box-shadow:
-    0 0 20px rgba(99, 102, 241, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .category-tab.completed {
@@ -1189,7 +1186,7 @@ a:hover {
 }
 
 .sub-tab::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: -100%;
@@ -1212,9 +1209,7 @@ a:hover {
 .sub-tab.active {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.15) 100%);
   border-color: var(--primary);
-  box-shadow:
-    0 0 25px rgba(99, 102, 241, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 25px rgba(99, 102, 241, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .sub-tab.completed {
@@ -1352,16 +1347,13 @@ a:hover {
 
 /* Shimmer effect overlay */
 .nominees-grid .nominee-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -50%;
   left: -50%;
   width: 200%;
   height: 200%;
-  background: linear-gradient(45deg,
-      transparent 30%,
-      rgba(255, 255, 255, 0.05) 50%,
-      transparent 70%);
+  background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.05) 50%, transparent 70%);
   transform: translateX(-100%) rotate(45deg);
   transition: transform 0.6s ease;
 }
@@ -1372,7 +1364,7 @@ a:hover {
 
 /* Ripple effect on click */
 .nominees-grid .nominee-card::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1396,9 +1388,7 @@ a:hover {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
   border-color: rgba(99, 102, 241, 0.3);
   transform: translateY(-2px);
-  box-shadow:
-    0 8px 25px rgba(0, 0, 0, 0.2),
-    0 0 15px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2), 0 0 15px rgba(99, 102, 241, 0.1);
 }
 
 /* ===== SELECTED STATE - Elegant Style ===== */
@@ -1407,27 +1397,17 @@ a:hover {
   border-color: var(--primary);
   border-width: 2px;
   z-index: 10;
-  box-shadow:
-    0 0 0 2px rgba(99, 102, 241, 0.4),
-    0 0 20px rgba(99, 102, 241, 0.2),
-    0 8px 25px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4), 0 0 20px rgba(99, 102, 241, 0.2), 0 8px 25px rgba(0, 0, 0, 0.25);
 }
 
 @keyframes selectedPulse {
-
   0%,
   100% {
-    box-shadow:
-      0 0 0 2px rgba(99, 102, 241, 0.5),
-      0 0 40px rgba(99, 102, 241, 0.3),
-      0 20px 50px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5), 0 0 40px rgba(99, 102, 241, 0.3), 0 20px 50px rgba(0, 0, 0, 0.3);
   }
 
   50% {
-    box-shadow:
-      0 0 0 4px rgba(99, 102, 241, 0.4),
-      0 0 60px rgba(99, 102, 241, 0.4),
-      0 20px 50px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.4), 0 0 60px rgba(99, 102, 241, 0.4), 0 20px 50px rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -1526,7 +1506,6 @@ a:hover {
 }
 
 @keyframes badgePulse {
-
   0%,
   100% {
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
@@ -1545,16 +1524,11 @@ a:hover {
 
 .nominees-grid .nominee-card.is-me:not(.selected):hover {
   border-color: rgba(16, 185, 129, 0.6);
-  box-shadow:
-    0 0 20px rgba(16, 185, 129, 0.2),
-    0 12px 40px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.2), 0 12px 40px rgba(0, 0, 0, 0.25);
 }
 
 .nominees-grid .nominee-card.is-me::before {
-  background: linear-gradient(45deg,
-      transparent 30%,
-      rgba(16, 185, 129, 0.08) 50%,
-      transparent 70%);
+  background: linear-gradient(45deg, transparent 30%, rgba(16, 185, 129, 0.08) 50%, transparent 70%);
 }
 
 .nominees-grid .nominee-card .nominee-role {
@@ -1664,7 +1638,7 @@ a:hover {
 
 /* ===== SPARKLE RING EFFECT ===== */
 .nominees-grid .nominee-card.selected::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1849,4 +1823,183 @@ a:hover {
   color: var(--text-muted);
   font-size: 0.875rem;
   letter-spacing: 0.02em;
+}
+
+/* =============================================
+   COUNTDOWN TIMER STYLES
+   ============================================= */
+
+.countdown-container {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg) var(--spacing-xl);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: var(--radius-2xl);
+  margin: var(--spacing-lg) 0;
+  backdrop-filter: blur(10px);
+  margin-bottom: 0px;
+}
+
+.countdown-container.countdown-active {
+  border-color: var(--primary);
+  animation: countdown-pulse 2s ease-in-out infinite;
+}
+
+.countdown-container.countdown-ended {
+  background: linear-gradient(135deg, rgba(220, 53, 69, 0.15) 0%, rgba(220, 53, 69, 0.08) 100%);
+  border-color: rgba(220, 53, 69, 0.5);
+  box-shadow: 0 4px 20px rgba(220, 53, 69, 0.15);
+  margin-top: 2rem;
+}
+
+.countdown-container.countdown-not-started {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%);
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+@keyframes countdown-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(99, 102, 241, 0.4);
+  }
+}
+
+.countdown-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+}
+
+.countdown-container.countdown-ended .countdown-label {
+  font-size: 1.1rem;
+  color: #f87171;
+  font-weight: 700;
+}
+
+.countdown-message {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-top: 0.5rem;
+}
+
+.countdown-timer {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.countdown-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 60px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.countdown-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.countdown-unit {
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.countdown-separator {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* Responsive countdown */
+@media (max-width: 768px) {
+  .countdown-container {
+    padding: var(--spacing-md);
+    width: 100%;
+    max-width: 350px;
+  }
+
+  .countdown-item {
+    min-width: 50px;
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+
+  .countdown-value {
+    font-size: 1.4rem;
+  }
+
+  .countdown-unit {
+    font-size: 0.55rem;
+  }
+
+  .countdown-separator {
+    font-size: 1.2rem;
+  }
+}
+
+/* =============================================
+   VOTING CLOSED OVERLAY FOR VOTE PAGE
+   ============================================= */
+
+.voting-closed-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: linear-gradient(135deg, rgba(220, 53, 69, 0.15) 0%, rgba(220, 53, 69, 0.1) 100%);
+  border: 1px solid rgba(220, 53, 69, 0.4);
+  border-radius: var(--radius-lg);
+  color: #dc3545;
+  font-weight: 500;
+  text-align: center;
+  margin-top: 25px;
+}
+
+.voting-closed-banner .banner-icon {
+  font-size: 1.5rem;
+}
+
+/* Disabled nominee cards when voting is closed */
+.nominees-grid.voting-disabled .nominee-card {
+  pointer-events: none;
+  opacity: 0.5;
+  filter: grayscale(50%);
+  cursor: not-allowed;
+}
+
+.nominees-grid.voting-disabled .nominee-card:hover {
+  transform: none;
+  box-shadow: none;
 }

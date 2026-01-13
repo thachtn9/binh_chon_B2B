@@ -7,7 +7,7 @@ import { categories, fetchNomineesForCategory, formatCurrency } from '../lib/sup
 
 export default function VotePage() {
     const { user, signInWithGoogle, canVote, permissionMessage, permissionLoading } = useAuth()
-    const { selectedCount, TOTAL_CATEGORIES, VOTE_COST, selections } = useVote()
+    const { selectedCount, TOTAL_CATEGORIES, VOTE_COST, selections, isVotingOpen, votingStatus } = useVote()
     const [activeCategory, setActiveCategory] = useState(categories[0])
     const [activeSubCategory, setActiveSubCategory] = useState(
         categories[0].sub_categories ? categories[0].sub_categories[0].id : null
@@ -162,6 +162,16 @@ export default function VotePage() {
                 </div>
             )}
 
+            {/* Thông báo khi dự đoán đã đóng */}
+            {!isVotingOpen && (
+                <div className="container" style={{ marginBottom: '1rem' }}>
+                    <div className="voting-closed-banner">
+                        <span className="banner-icon">🚫</span>
+                        <span>{votingStatus.message}</span>
+                    </div>
+                </div>
+            )}
+
             {/* Main Layout: Left categories, Right nominees */}
             <div className="vote-layout container">
                 {/* Left Sidebar - Categories */}
@@ -259,7 +269,7 @@ export default function VotePage() {
                     </div>
 
                     {/* Nominees Grid with staggered animation */}
-                    <div className="nominees-grid" key={animationKey}>
+                    <div className={`nominees-grid ${!isVotingOpen ? 'voting-disabled' : ''}`} key={animationKey}>
                         {nomineesLoading ? (
                             <div className="empty-state">
                                 <div className="empty-state-icon" style={{ fontSize: '2rem' }}>⏳</div>

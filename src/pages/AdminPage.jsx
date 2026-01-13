@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import { getAllVoteSessions, getVoterRankingReport, getAllUsersForAdmin, updateUserAdminStatus, formatCurrency, formatDate, findCorrectPredictions, getNomineesForWinnerSelection, getNomineeStatistics } from "../lib/supabase";
+import { getAllVoteSessions, getVoterRankingReport, getAllUsersForAdmin, updateUserAdminStatus, formatCurrency, formatDate, findCorrectPredictions, getNomineesForWinnerSelection, getNomineeStatistics, getSettings, updateSettings } from "../lib/supabase";
 import { categories } from "../config/votingConfig";
 import { useNavigate } from "react-router-dom";
 
 export default function AdminPage() {
   const { user, voteUser, loading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("votes"); // 'votes', 'users', 'admins', 'nominees', or 'results'
+  const [activeTab, setActiveTab] = useState("votes"); // 'votes', 'users', 'admins', 'nominees', 'settings', or 'results'
   const [votesData, setVotesData] = useState([]);
   const [usersData, setUsersData] = useState([]);
   const [adminsData, setAdminsData] = useState([]);
@@ -16,6 +16,11 @@ export default function AdminPage() {
 
   // Nominee statistics tab states
   const [nomineeStats, setNomineeStats] = useState([]);
+
+  // Settings tab states
+  const [settings, setSettings] = useState(null);
+  const [editedSettings, setEditedSettings] = useState(null);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // Results tab states
   const [allNominees, setAllNominees] = useState([]);
@@ -37,12 +42,14 @@ export default function AdminPage() {
   const fetchData = async () => {
     setIsLoadingData(true);
     try {
-      const [sessions, users, allUsers, nominees, stats] = await Promise.all([getAllVoteSessions(), getVoterRankingReport(), getAllUsersForAdmin(), getNomineesForWinnerSelection(), getNomineeStatistics()]);
+      const [sessions, users, allUsers, nominees, stats, settingsData] = await Promise.all([getAllVoteSessions(), getVoterRankingReport(), getAllUsersForAdmin(), getNomineesForWinnerSelection(), getNomineeStatistics(), getSettings()]);
       setVotesData(sessions);
       setUsersData(users);
       setAdminsData(allUsers);
       setAllNominees(nominees);
       setNomineeStats(stats);
+      setSettings(settingsData);
+      setEditedSettings(settingsData);
     } catch (error) {
       console.error("Error fetching admin data:", error);
     } finally {
@@ -68,6 +75,42 @@ export default function AdminPage() {
     } finally {
       setUpdatingUserId(null);
     }
+  };
+
+  // Handle settings field change
+  const handleSettingChange = (field, value) => {
+    setEditedSettings((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  // Save settings
+  const handleSaveSettings = async () => {
+    if (!editedSettings) return;
+
+    setIsSavingSettings(true);
+    try {
+      await updateSettings(editedSettings);
+      setSettings(editedSettings);
+      alert("Cập nhật cài đặt thành công!");
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      alert("Có lỗi xảy ra khi lưu cài đặt: " + error.message);
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  // Reset settings to original
+  const handleResetSettings = () => {
+    setEditedSettings(settings);
+  };
+
+  // Check if settings have been modified
+  const isSettingsModified = () => {
+    if (!settings || !editedSettings) return false;
+    return JSON.stringify(settings) !== JSON.stringify(editedSettings);
   };
 
   // Handle winner selection for a category
@@ -169,6 +212,9 @@ export default function AdminPage() {
         </button>
         <button className={`btn ${activeTab === "admins" ? "btn-primary" : "btn-secondary"}`} onClick={() => setActiveTab("admins")}>
           🔐 Phân quyền
+        </button>
+        <button className={`btn ${activeTab === "settings" ? "btn-primary" : "btn-secondary"}`} onClick={() => setActiveTab("settings")}>
+          ⚙️ Cài đặt
         </button>
         <button className={`btn ${activeTab === "results" ? "btn-primary" : "btn-secondary"}`} onClick={() => setActiveTab("results")}>
           🏆 Tìm Người Đoán Đúng
@@ -428,6 +474,138 @@ export default function AdminPage() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "settings" && (
+            <div className="card">
+              <h3 style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>⚙️ Cài Đặt Hệ Thống</h3>
+              <p style={{ color: "#888", marginBottom: "1.5rem", fontSize: "0.9rem" }}>Quản lý các thông số cơ bản của hệ thống bình chọn.</p>
+
+              {editedSettings && (
+                <div className="settings-form">
+                  {/* Voting Time Range */}
+                  <div className="time-settings-section">
+                    <h4 style={{ marginBottom: "1rem", color: "#FCD34D", fontSize: "1rem" }}>⏰ Thời gian bình chọn</h4>
+
+                    <div className="setting-group">
+                      <label className="setting-label">🕐 Thời gian bắt đầu</label>
+                      <input
+                        type="datetime-local"
+                        className="setting-input"
+                        value={editedSettings.voting_start_time ? new Date(editedSettings.voting_start_time).toLocaleString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).slice(0, 16) : ""}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            const localDate = new Date(e.target.value);
+                            handleSettingChange("voting_start_time", localDate.toISOString());
+                          }
+                        }}
+                      />
+                      {editedSettings.voting_start_time && (
+                        <span className="setting-hint">
+                          📅{" "}
+                          {new Date(editedSettings.voting_start_time).toLocaleString("vi-VN", {
+                            timeZone: "Asia/Ho_Chi_Minh",
+                            dateStyle: "full",
+                            timeStyle: "short",
+                          })}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="setting-group">
+                      <label className="setting-label">🕐 Thời gian kết thúc</label>
+                      <input
+                        type="datetime-local"
+                        className="setting-input"
+                        value={editedSettings.voting_end_time ? new Date(editedSettings.voting_end_time).toLocaleString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).slice(0, 16) : ""}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            const localDate = new Date(e.target.value);
+                            handleSettingChange("voting_end_time", localDate.toISOString());
+                          }
+                        }}
+                      />
+                      {editedSettings.voting_end_time && (
+                        <span className="setting-hint">
+                          📅{" "}
+                          {new Date(editedSettings.voting_end_time).toLocaleString("vi-VN", {
+                            timeZone: "Asia/Ho_Chi_Minh",
+                            dateStyle: "full",
+                            timeStyle: "short",
+                          })}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Time Status */}
+                    {(() => {
+                      const now = new Date();
+                      const start = new Date(editedSettings.voting_start_time);
+                      const end = new Date(editedSettings.voting_end_time);
+                      let statusText = "";
+                      let statusColor = "#888";
+
+                      if (now < start) {
+                        const daysUntil = Math.ceil((start - now) / (1000 * 60 * 60 * 24));
+                        statusText = `⏳ Chưa bắt đầu (còn ${daysUntil} ngày)`;
+                        statusColor = "#60a5fa";
+                      } else if (now > end) {
+                        statusText = "⛔ Đã kết thúc";
+                        statusColor = "#ef4444";
+                      } else {
+                        const daysLeft = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+                        statusText = `✅ Đang diễn ra (còn ${daysLeft} ngày)`;
+                        statusColor = "#10b981";
+                      }
+
+                      return (
+                        <div className="time-status" style={{ color: statusColor }}>
+                          {statusText}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Vote Cost */}
+                  <div className="setting-row">
+                    <div className="setting-group">
+                      <label className="setting-label">💰 Phí mỗi lần dự đoán (VND)</label>
+                      <input type="number" className="setting-input" value={editedSettings.vote_cost || 0} onChange={(e) => handleSettingChange("vote_cost", parseInt(e.target.value) || 0)} min={0} step={1000} />
+                      <span className="setting-hint">Hiện tại: {formatCurrency(editedSettings.vote_cost || 0)}</span>
+                    </div>
+                    <div className="setting-group">
+                      <label className="setting-label">🎁 Số tiền donate thêm (VND)</label>
+                      <input type="number" className="setting-input" value={editedSettings.donate_amount || 0} onChange={(e) => handleSettingChange("donate_amount", parseInt(e.target.value) || 0)} min={0} step={1000} />
+                      <span className="setting-hint">Hiện tại: {formatCurrency(editedSettings.donate_amount || 0)}</span>
+                    </div>
+                  </div>
+
+                  {/* Active Status */}
+                  <div className="setting-group">
+                    <label className="setting-label">🔘 Trạng thái hoạt động</label>
+                    <div className="setting-toggle-row">
+                      <label className="admin-toggle">
+                        <input type="checkbox" checked={editedSettings.is_active || false} onChange={(e) => handleSettingChange("is_active", e.target.checked)} />
+                        <span className="toggle-slider"></span>
+                      </label>
+                      <span style={{ color: editedSettings.is_active ? "#10b981" : "#888" }}>{editedSettings.is_active ? "Đang mở bình chọn" : "Đã đóng bình chọn"}</span>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="setting-actions">
+                    <button className="btn btn-primary" onClick={handleSaveSettings} disabled={isSavingSettings || !isSettingsModified()}>
+                      {isSavingSettings ? "⏳ Đang lưu..." : "💾 Lưu thay đổi"}
+                    </button>
+                    <button className="btn btn-secondary" onClick={handleResetSettings} disabled={isSavingSettings || !isSettingsModified()}>
+                      ↩️ Hoàn tác
+                    </button>
+                  </div>
+
+                  {isSettingsModified() && <div className="setting-modified-notice">⚠️ Bạn có thay đổi chưa được lưu</div>}
                 </div>
               )}
             </div>
@@ -908,6 +1086,96 @@ export default function AdminPage() {
                     .nominee-name-stat {
                         font-size: 0.85rem;
                     }
+                }
+
+                /* Settings Form Styles */
+                .settings-form {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1.5rem;
+                    max-width: 800px;
+                }
+                .time-settings-section {
+                    padding: 1.5rem;
+                    background: rgba(252, 211, 77, 0.05);
+                    border: 1px solid rgba(252, 211, 77, 0.2);
+                    border-radius: 12px;
+                }
+                .time-status {
+                    margin-top: 1rem;
+                    padding: 0.75rem 1rem;
+                    background: rgba(0, 0, 0, 0.3);
+                    border-radius: 8px;
+                    font-weight: 600;
+                    font-size: 0.95rem;
+                    text-align: center;
+                }
+                .setting-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                    flex: 1;
+                }
+                .setting-row {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 1.5rem;
+                }
+                @media (max-width: 768px) {
+                    .setting-row {
+                        grid-template-columns: 1fr;
+                    }
+                }
+                .setting-label {
+                    font-weight: 600;
+                    font-size: 0.9rem;
+                    color: #ddd;
+                }
+                .setting-input {
+                    padding: 0.75rem 1rem;
+                    border-radius: 8px;
+                    background: rgba(0, 0, 0, 0.3);
+                    border: 1px solid rgba(255, 255, 255, 0.15);
+                    color: white;
+                    font-size: 0.95rem;
+                    transition: border-color 0.2s, box-shadow 0.2s;
+                }
+                .setting-input:focus {
+                    outline: none;
+                    border-color: var(--gold);
+                    box-shadow: 0 0 0 2px rgba(252, 211, 77, 0.2);
+                }
+                .setting-input::placeholder {
+                    color: #666;
+                }
+                .setting-textarea {
+                    resize: vertical;
+                    min-height: 80px;
+                }
+                .setting-hint {
+                    font-size: 0.8rem;
+                    color: #888;
+                }
+                .setting-toggle-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                }
+                .setting-actions {
+                    display: flex;
+                    gap: 1rem;
+                    margin-top: 1rem;
+                    padding-top: 1.5rem;
+                    border-top: 1px solid rgba(255, 255, 255, 0.1);
+                }
+                .setting-modified-notice {
+                    margin-top: 1rem;
+                    padding: 0.75rem 1rem;
+                    background: rgba(251, 191, 36, 0.1);
+                    border: 1px solid rgba(251, 191, 36, 0.3);
+                    border-radius: 8px;
+                    color: #FCD34D;
+                    font-size: 0.9rem;
                 }
             `}</style>
     </div>
