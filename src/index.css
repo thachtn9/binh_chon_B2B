@@ -348,6 +348,7 @@ a:hover {
 }
 
 @keyframes pulse-glow {
+
   0%,
   100% {
     box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
@@ -1401,6 +1402,7 @@ a:hover {
 }
 
 @keyframes selectedPulse {
+
   0%,
   100% {
     box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5), 0 0 40px rgba(99, 102, 241, 0.3), 0 20px 50px rgba(0, 0, 0, 0.3);
@@ -1506,6 +1508,7 @@ a:hover {
 }
 
 @keyframes badgePulse {
+
   0%,
   100% {
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
@@ -1529,6 +1532,57 @@ a:hover {
 
 .nominees-grid .nominee-card.is-me::before {
   background: linear-gradient(45deg, transparent 30%, rgba(16, 185, 129, 0.08) 50%, transparent 70%);
+}
+
+/* ===== MY VOTE BADGE - Số lần đã vote ===== */
+.my-vote-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #e7d7c4 0%, #e9d6c2 100%);
+  color: var(--bg-darkest);
+  border-radius: 11px;
+  box-shadow: 0 2px 8px rgba(251, 191, 36, 0.5);
+  z-index: 15;
+  cursor: help;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  animation: voteBadgePulse 2s ease-in-out infinite;
+}
+
+.my-vote-badge:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 15px rgba(251, 191, 36, 0.7);
+}
+
+@keyframes voteBadgePulse {
+
+  0%,
+  100% {
+    box-shadow: 0 2px 10px rgba(251, 191, 36, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 4px 20px rgba(251, 191, 36, 0.6);
+  }
+}
+
+/* Highlight card đã vote trước đó */
+.nominees-grid .nominee-card.has-voted {
+  border-color: rgba(251, 191, 36, 0.3);
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, rgba(245, 158, 11, 0.04) 100%);
+}
+
+.nominees-grid .nominee-card.has-voted:not(.selected):hover {
+  border-color: rgba(251, 191, 36, 0.5);
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.15), 0 12px 40px rgba(0, 0, 0, 0.25);
 }
 
 .nominees-grid .nominee-card .nominee-role {
@@ -1861,10 +1915,12 @@ a:hover {
 }
 
 @keyframes countdown-pulse {
+
   0%,
   100% {
     box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
   }
+
   50% {
     box-shadow: 0 0 40px rgba(99, 102, 241, 0.4);
   }
@@ -1933,10 +1989,12 @@ a:hover {
 }
 
 @keyframes blink {
+
   0%,
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.3;
   }

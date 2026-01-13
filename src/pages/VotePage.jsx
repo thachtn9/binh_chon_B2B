@@ -6,8 +6,8 @@ import VoteSummary from '../components/VoteSummary'
 import { categories, fetchNomineesForCategory, formatCurrency } from '../lib/supabase'
 
 export default function VotePage() {
-    const { user, signInWithGoogle, canVote, permissionMessage, permissionLoading } = useAuth()
-    const { selectedCount, TOTAL_CATEGORIES, VOTE_COST, selections, isVotingOpen, votingStatus } = useVote()
+    const { user, signInWithGoogle, canVote, permissionMessage, permissionLoading, voteUser } = useAuth()
+    const { selectedCount, TOTAL_CATEGORIES, VOTE_COST, selections, isVotingOpen, votingStatus, loadUserHistory } = useVote()
     const [activeCategory, setActiveCategory] = useState(categories[0])
     const [activeSubCategory, setActiveSubCategory] = useState(
         categories[0].sub_categories ? categories[0].sub_categories[0].id : null
@@ -19,6 +19,13 @@ export default function VotePage() {
     // State for nominees loaded from database
     const [nominees, setNominees] = useState([])
     const [nomineesLoading, setNomineesLoading] = useState(true)
+
+    // Auto-load user vote history from database when page loads
+    useEffect(() => {
+        if (voteUser?.id) {
+            loadUserHistory(voteUser.id)
+        }
+    }, [voteUser?.id, loadUserHistory])
 
     // Fetch nominees when category/sub-category changes
     useEffect(() => {
@@ -113,8 +120,8 @@ export default function VotePage() {
                 <div className="container">
                     <h1 className="vote-title">🗳️ Dự Đoán ISCGP Awards 2025</h1>
                     <p className="vote-subtitle">
-                        Chọn ứng viên cho <strong>tất cả {TOTAL_CATEGORIES} hạng mục</strong> •
-                        Mỗi lần dự đoán = <strong style={{ color: 'var(--gold)' }}>{formatCurrency(VOTE_COST)}</strong>
+                        Chọn <strong>1 hoặc nhiều hạng mục</strong> •
+                        Mỗi hạng mục = <strong style={{ color: 'var(--gold)' }}>{formatCurrency(VOTE_COST)}</strong>
                     </p>
 
                     {/* Progress Bar */}

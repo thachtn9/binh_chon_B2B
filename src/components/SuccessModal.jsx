@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 
-export default function SuccessModal({ isOpen, onClose, amount }) {
+export default function SuccessModal({ isOpen, onClose, amount, categoryCount = 0 }) {
     const navigate = useNavigate()
     const [isVisible, setIsVisible] = useState(false)
 
@@ -24,7 +24,11 @@ export default function SuccessModal({ isOpen, onClose, amount }) {
                 </div>
                 <h2 className="modal-title">Dự đoán thành công!</h2>
                 <p className="modal-message">
-                    Cảm ơn bạn đã đóng góp <span className="highlight">{amount}</span> vào quỹ giải thưởng.
+                    Bạn đã dự đoán <span className="highlight">{categoryCount} hạng mục</span> và
+                    đóng góp <span className="highlight">{amount}</span> vào quỹ giải thưởng.
+                </p>
+                <p className="modal-tip">
+                    💡 <strong>Tip:</strong> Bạn có thể dự đoán 1 hạng mục nhiều lần để tăng cơ hội trúng thưởng!
                 </p>
                 <div className="modal-actions">
                     <button
@@ -101,6 +105,17 @@ export default function SuccessModal({ isOpen, onClose, amount }) {
                     color: #FCD34D;
                     font-weight: bold;
                     font-size: 1.1em;
+                }
+
+                .modal-tip {
+                    background: rgba(255, 215, 0, 0.1);
+                    border: 1px solid rgba(255, 215, 0, 0.2);
+                    border-radius: 0.5rem;
+                    padding: 0.75rem 1rem;
+                    color: #aaa;
+                    font-size: 0.875rem;
+                    margin-bottom: 1.5rem;
+                    line-height: 1.4;
                 }
 
                 .modal-actions {

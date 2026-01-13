@@ -321,7 +321,7 @@ export async function submitVotesToDB(voterId, voterEmail, voterName, votes, tot
     category_id: vote.category_id,
     category_name: vote.category_name,
     nominee_id: vote.nominee_id, // UUID from users table
-    amount: vote.amount || Math.round(totalAmount / votes.length),
+    amount: vote.amount, // Mỗi hạng mục có chi phí vote_cost
   }));
 
   const { error: votesError } = await supabase.from("votes").insert(voteRecords);

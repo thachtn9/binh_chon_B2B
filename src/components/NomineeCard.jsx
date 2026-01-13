@@ -3,11 +3,14 @@ import { useVote } from '../context/VoteContext'
 import { useAuth } from '../context/AuthContext'
 
 export default function NomineeCard({ nominee, categoryId, showVotes = false }) {
-    const { selections, selectNominee, isVotingOpen } = useVote()
+    const { selections, selectNominee, isVotingOpen, getUserVoteCountForNominee } = useVote()
     const { canVote, user } = useAuth()
     const isSelected = selections[categoryId] === nominee.id
     const [showParticles, setShowParticles] = useState(false)
     const [justSelected, setJustSelected] = useState(false)
+
+    // Đếm số lần user đã vote cho nominee này trong category này
+    const myVoteCount = getUserVoteCountForNominee(categoryId, nominee.id)
 
     // Kiểm tra xem nominee có phải là chính mình không
     const isCurrentUser = user?.email?.toLowerCase() === nominee.email?.toLowerCase()
@@ -80,13 +83,20 @@ export default function NomineeCard({ nominee, categoryId, showVotes = false }) 
 
     return (
         <div
-            className={`nominee-card ${isSelected ? 'selected' : ''} ${!canClickToVote ? 'disabled' : ''} ${justSelected ? 'just-selected' : ''} ${isCurrentUser ? 'is-me' : ''}`}
+            className={`nominee-card ${isSelected ? 'selected' : ''} ${!canClickToVote ? 'disabled' : ''} ${justSelected ? 'just-selected' : ''} ${isCurrentUser ? 'is-me' : ''} ${myVoteCount > 0 ? 'has-voted' : ''}`}
             onClick={handleClick}
             style={{
                 cursor: canClickToVote ? 'pointer' : 'not-allowed',
                 opacity: canClickToVote ? 1 : 0.6
             }}
         >
+            {/* Badge hiển thị số lần đã vote - góc trên bên phải */}
+            {myVoteCount > 0 && (
+                <div className="my-vote-badge" title={`Bạn đã dự đoán ${myVoteCount} lần cho đề cử này`}>
+                    {myVoteCount}
+                </div>
+            )}
+
             {/* Particle effect on selection */}
             {showParticles && (
                 <div className="selection-particles">

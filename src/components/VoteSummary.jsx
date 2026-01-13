@@ -8,19 +8,20 @@ import SuccessModal from './SuccessModal'
 export default function VoteSummary() {
     const {
         selectedCount,
-        isAllSelected,
-        remainingCount,
-        remainingItems,
         submitVotes,
         clearAllSelections,
         VOTE_COST,
-        TOTAL_CATEGORIES
+        TOTAL_CATEGORIES,
+        totalSelectedAmount,
+        totalSelectedAmountFormatted
     } = useVote()
     const { user, voteUser, canVote } = useAuth()
     const navigate = useNavigate()
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState(null)
     const [showSuccessModal, setShowSuccessModal] = useState(false)
+    // Lưu giá trị trước khi submit (vì selections bị reset sau khi submit)
+    const [submittedData, setSubmittedData] = useState({ count: 0, amount: '' })
 
     if (selectedCount === 0 && !showSuccessModal) {
         return null
@@ -32,11 +33,15 @@ export default function VoteSummary() {
             return
         }
 
-        if (!isAllSelected) {
-            const names = remainingItems.slice(0, 3).map(c => c.name).join(', ')
-            const more = remainingItems.length > 3 ? ` và ${remainingItems.length - 3} hạng mục khác` : ''
-            setError(`Còn ${remainingCount} hạng mục: ${names}${more}`)
+        if (selectedCount === 0) {
+            setError('Vui lòng chọn ít nhất một hạng mục')
             return
+        }
+
+        // Lưu giá trị trước khi submit
+        const dataToSave = {
+            count: selectedCount,
+            amount: totalSelectedAmountFormatted
         }
 
         setIsSubmitting(true)
@@ -44,6 +49,7 @@ export default function VoteSummary() {
 
         try {
             await submitVotes(user, voteUser, canVote)
+            setSubmittedData(dataToSave)
             setShowSuccessModal(true)
             // Remove immediate navigation
         } catch (err) {
@@ -64,16 +70,11 @@ export default function VoteSummary() {
                     <div className="vote-summary-info">
                         <span className="vote-summary-count">
                             {selectedCount}/{TOTAL_CATEGORIES} hạng mục
-                            {!isAllSelected && (
-                                <span style={{ color: 'var(--secondary)', marginLeft: '0.5rem' }}>
-                                    (còn {remainingCount})
-                                </span>
-                            )}
                         </span>
                         <span className="vote-summary-amount">
-                            {formatCurrency(VOTE_COST)}
+                            {totalSelectedAmountFormatted}
                             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.25rem' }}>
-                                /lần dự đoán
+                                ({selectedCount} × {formatCurrency(VOTE_COST)})
                             </span>
                         </span>
                     </div>
@@ -93,11 +94,11 @@ export default function VoteSummary() {
 
                     <button
                         onClick={handleSubmit}
-                        className={`btn ${isAllSelected ? 'btn-gold' : 'btn-secondary'}`}
-                        disabled={isSubmitting || !isAllSelected}
-                        title={!isAllSelected ? `Còn ${remainingCount} hạng mục chưa chọn` : 'Xác nhận dự đoán'}
+                        className={`btn ${selectedCount > 0 ? 'btn-gold' : 'btn-secondary'}`}
+                        disabled={isSubmitting || selectedCount === 0}
+                        title={selectedCount === 0 ? 'Vui lòng chọn ít nhất 1 hạng mục' : `Xác nhận dự đoán ${selectedCount} hạng mục`}
                     >
-                        {isSubmitting ? 'Đang xử lý...' : isAllSelected ? '✓ Xác nhận dự đoán' : `Còn ${remainingCount} hạng mục`}
+                        {isSubmitting ? 'Đang xử lý...' : selectedCount > 0 ? `✓ Xác nhận (${totalSelectedAmountFormatted})` : 'Chọn hạng mục'}
                     </button>
                 </div>
             )}
@@ -105,7 +106,8 @@ export default function VoteSummary() {
             <SuccessModal
                 isOpen={showSuccessModal}
                 onClose={() => setShowSuccessModal(false)}
-                amount={formatCurrency(VOTE_COST)}
+                amount={submittedData.amount}
+                categoryCount={submittedData.count}
             />
         </>
     )

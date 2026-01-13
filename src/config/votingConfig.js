@@ -86,8 +86,8 @@ export const defaultSettings = {
   // Thời gian đóng bình chọn (ISO string)
   voting_end_time: "2025-01-31T23:59:59+07:00",
 
-  // Số tiền mỗi lần dự đoán (VND)
-  vote_cost: 10000,
+  // Số tiền mỗi hạng mục dự đoán (VND)
+  vote_cost: 5000,
 
   // Số tiền donate thêm vào giải thưởng (VND)
   donate_amount: 0,

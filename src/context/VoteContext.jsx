@@ -226,11 +226,9 @@ export function VoteProvider({ children }) {
             throw new Error(status.message)
         }
 
-        // Validate all categories are selected
-        if (!isAllSelected()) {
-            const remaining = getRemainingItems()
-            const names = remaining.map(c => `${c.icon} ${c.name}`).join(', ')
-            throw new Error(`Vui lòng bình chọn tất cả hạng mục. Còn thiếu: ${names}`)
+        // Validate at least one category is selected
+        if (Object.keys(selections).length === 0) {
+            throw new Error('Vui lòng chọn ít nhất một hạng mục để dự đoán')
         }
 
         const votes = Object.entries(selections).map(([categoryId, nomineeId]) => {
@@ -262,7 +260,7 @@ export function VoteProvider({ children }) {
                 nominee_id: nomineeId,
                 nominee_name: nominee?.user_name,
                 nominee_avatar: nominee?.url_avatar,
-                amount: Math.round(VOTE_COST / Object.keys(selections).length)
+                amount: VOTE_COST // Mỗi hạng mục có chi phí vote_cost
             }
         })
 
@@ -277,19 +275,20 @@ export function VoteProvider({ children }) {
             voter_name: voterName,
             votes,
             total_categories: votes.length,
-            total_amount: VOTE_COST,
+            total_amount: VOTE_COST * votes.length, // Tổng tiền = số hạng mục × vote_cost
             created_at: new Date().toISOString()
         }
 
         // Try to submit to database
         if (!isDemoMode && voterId) {
             try {
+                const totalAmount = VOTE_COST * votes.length
                 const dbSession = await submitVotesToDB(
                     voterId,
                     voterEmail,
                     voterName,
                     votes,
-                    VOTE_COST
+                    totalAmount
                 )
                 voteSession.id = dbSession.id
             } catch (dbError) {
@@ -302,8 +301,9 @@ export function VoteProvider({ children }) {
         }
 
         // Update state
+        const totalAmount = VOTE_COST * votes.length
         const newHistory = [voteSession, ...voteHistory]
-        const newTotalPrize = totalPrize + VOTE_COST
+        const newTotalPrize = totalPrize + totalAmount
         const newTotalVotes = totalVotes + 1 // Count as 1 vote session
 
         setVoteHistory(newHistory)
@@ -330,6 +330,24 @@ export function VoteProvider({ children }) {
     const getUserTotalSpent = (userEmail) => {
         return getUserHistory(userEmail).reduce((sum, session) => sum + session.total_amount, 0)
     }
+
+    /**
+     * Đếm số lần user đã vote cho một nominee trong một category
+     * @param {string} categoryId - ID của category hoặc sub-category
+     * @param {string} nomineeId - ID của nominee
+     * @returns {number} - Số lần đã vote
+     */
+    const getUserVoteCountForNominee = useCallback((categoryId, nomineeId) => {
+        let count = 0
+        voteHistory.forEach(session => {
+            session.votes?.forEach(vote => {
+                if (vote.category_id === categoryId && vote.nominee_id === nomineeId) {
+                    count++
+                }
+            })
+        })
+        return count
+    }, [voteHistory])
 
     // Load user's vote history from database
     const loadUserHistory = useCallback(async (userId) => {
@@ -394,6 +412,7 @@ export function VoteProvider({ children }) {
         submitVotes,
         getUserHistory,
         getUserTotalSpent,
+        getUserVoteCountForNominee,
         loadUserHistory,
 
         // Helpers
@@ -411,6 +430,8 @@ export function VoteProvider({ children }) {
         remainingCount: TOTAL_CATEGORIES - Object.keys(selections).length,
         voteAmount: VOTE_COST,
         voteAmountFormatted: formatCurrency(VOTE_COST),
+        totalSelectedAmount: VOTE_COST * Object.keys(selections).length,
+        totalSelectedAmountFormatted: formatCurrency(VOTE_COST * Object.keys(selections).length),
 
         // Donate and total prize
         donateAmount,
