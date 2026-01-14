@@ -83,19 +83,14 @@ export default function NomineeCard({ nominee, categoryId, showVotes = false }) 
 
     return (
         <div
-            className={`nominee-card ${isSelected ? 'selected' : ''} ${!canClickToVote ? 'disabled' : ''} ${justSelected ? 'just-selected' : ''} ${isCurrentUser ? 'is-me' : ''} ${myVoteCount > 0 ? 'has-voted' : ''}`}
+            className={`nominee-card ${isSelected ? 'selected' : ''} ${!canClickToVote ? 'disabled' : ''} ${justSelected ? 'just-selected' : ''} ${isCurrentUser ? 'is-me' : ''}`}
             onClick={handleClick}
             style={{
                 cursor: canClickToVote ? 'pointer' : 'not-allowed',
                 opacity: canClickToVote ? 1 : 0.6
             }}
         >
-            {/* Badge hiển thị số lần đã vote - góc trên bên phải */}
-            {myVoteCount > 0 && (
-                <div className="my-vote-badge" title={`Bạn đã dự đoán ${myVoteCount} lần cho đề cử này`}>
-                    {myVoteCount}
-                </div>
-            )}
+
 
             {/* Particle effect on selection */}
             {showParticles && (
@@ -152,8 +147,13 @@ export default function NomineeCard({ nominee, categoryId, showVotes = false }) 
                     <div className="nominee-vote-label">votes</div>
                 </div>
             )}
-            <div className="check-icon">
-                {isSelected && '✓'}
+            <div
+                className={`check-icon ${isSelected ? 'is-selected' : ''} ${myVoteCount > 0 ? 'has-vote-count' : ''}`}
+                title={myVoteCount > 0 ? `Bạn đã dự đoán ${myVoteCount} lần cho đề cử này` : ''}
+            >
+                {isSelected
+                    ? (myVoteCount > 0 ? (myVoteCount + 1) : '✓')
+                    : (myVoteCount > 0 ? myVoteCount : '')}
             </div>
         </div>
     )

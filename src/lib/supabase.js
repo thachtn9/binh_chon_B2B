@@ -269,6 +269,7 @@ export async function updateSettings(settings) {
       voting_start_time: settings.voting_start_time,
       voting_end_time: settings.voting_end_time,
       vote_cost: settings.vote_cost,
+      donate_amount: settings.donate_amount,
       event_name: settings.event_name,
       event_description: settings.event_description,
       is_active: settings.is_active,

@@ -1534,30 +1534,30 @@ a:hover {
   background: linear-gradient(45deg, transparent 30%, rgba(16, 185, 129, 0.08) 50%, transparent 70%);
 }
 
-/* ===== MY VOTE BADGE - Số lần đã vote ===== */
-.my-vote-badge {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
-  font-size: 0.7rem;
+/* ===== CHECK-ICON WITH VOTE COUNT (không selected - chỉ hiện số) ===== */
+.nominees-grid .nominee-card .check-icon.has-vote-count {
+  color: var(--gold);
   font-weight: 700;
-  background: linear-gradient(135deg, #e7d7c4 0%, #e9d6c2 100%);
-  color: var(--bg-darkest);
-  border-radius: 11px;
-  box-shadow: 0 2px 8px rgba(251, 191, 36, 0.5);
-  z-index: 15;
+  font-size: 0.7rem;
   cursor: help;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.nominees-grid .nominee-card .check-icon.has-vote-count:hover {
+  transform: scale(1.15);
+}
+
+/* ===== CHECK-ICON KHI SELECTED - nền vàng ===== */
+.nominees-grid .nominee-card .check-icon.is-selected {
+  background: linear-gradient(135deg, var(--gold) 0%, #f59e0b 100%);
+  border-color: var(--gold);
+  color: var(--bg-darkest);
+  font-weight: 700;
+  font-size: 0.7rem;
+  box-shadow: 0 2px 10px rgba(251, 191, 36, 0.5);
   animation: voteBadgePulse 2s ease-in-out infinite;
 }
 
-.my-vote-badge:hover {
+.nominees-grid .nominee-card .check-icon.is-selected:hover {
   transform: scale(1.15);
   box-shadow: 0 4px 15px rgba(251, 191, 36, 0.7);
 }

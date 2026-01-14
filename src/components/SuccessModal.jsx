@@ -35,7 +35,7 @@ export default function SuccessModal({ isOpen, onClose, amount, categoryCount = 
                         className="btn btn-secondary"
                         onClick={onClose}
                     >
-                        Tiếp tục xem
+                        Tiếp tục dự đoán
                     </button>
                     <button
                         className="btn btn-primary"
