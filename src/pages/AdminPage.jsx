@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { useAuth } from "../context/AuthContext";
-import { getAllVoteSessions, getVoterRankingReport, getAllUsersForAdmin, updateUserAdminStatus, formatCurrency, formatDate, findCorrectPredictions, getNomineesForWinnerSelection, getNomineeStatistics, getSettings, updateSettings } from "../lib/supabase";
+import { getAllVoteSessions, getVoterRankingReport, getAllUsersForAdmin, updateUserAdminStatus, formatCurrency, formatDate, findCorrectPredictionsByCategory, getNomineesForWinnerSelection, getNomineeStatistics, getSettings, updateSettings } from "../lib/supabase";
 import { categories } from "../config/votingConfig";
 import { useNavigate } from "react-router-dom";
 
@@ -26,7 +26,8 @@ export default function AdminPage() {
   // Results tab states
   const [allNominees, setAllNominees] = useState([]);
   const [selectedWinners, setSelectedWinners] = useState({}); // { category_id: nominee_id }
-  const [predictionResults, setPredictionResults] = useState([]);
+  const [predictionResults, setPredictionResults] = useState({}); // { category_id: { category_name, voters: [...] } }
+  const [topPredictors, setTopPredictors] = useState([]); // Overall top predictors
   const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
@@ -200,14 +201,86 @@ export default function AdminPage() {
 
     setIsSearching(true);
     try {
-      const results = await findCorrectPredictions(selectedWinners);
+      const results = await findCorrectPredictionsByCategory(selectedWinners);
       setPredictionResults(results);
+
+      // Calculate top predictors overall
+      calculateTopPredictors(results);
     } catch (error) {
       console.error("Error finding predictions:", error);
       alert("Có lỗi xảy ra: " + error.message);
     } finally {
       setIsSearching(false);
     }
+  };
+
+  // Calculate top predictors from category results
+  const calculateTopPredictors = (categoryResults) => {
+    const voterMap = new Map();
+
+    // Aggregate data from all categories
+    Object.values(categoryResults).forEach((catResult) => {
+      catResult.voters.forEach((voter) => {
+        const key = voter.voter_email || voter.voter_id;
+        if (!voterMap.has(key)) {
+          voterMap.set(key, {
+            voter_id: voter.voter_id,
+            voter_email: voter.voter_email,
+            voter_name: voter.voter_name,
+            voter_avatar: voter.voter_avatar,
+            total_correct_categories: 0,
+            total_predictions: 0,
+            categories_details: [],
+          });
+        }
+
+        const voterData = voterMap.get(key);
+        voterData.total_correct_categories += 1; // This voter predicted this category correctly
+        voterData.total_predictions += voter.prediction_count;
+        voterData.categories_details.push({
+          category_id: catResult.category_id,
+          category_name: catResult.category_name,
+          prediction_count: voter.prediction_count,
+        });
+      });
+    });
+
+    // Convert to array and sort
+    const topList = Array.from(voterMap.values()).sort((a, b) => {
+      // First by number of correct categories (descending)
+      if (b.total_correct_categories !== a.total_correct_categories) {
+        return b.total_correct_categories - a.total_correct_categories;
+      }
+      // Then by total predictions (descending)
+      return b.total_predictions - a.total_predictions;
+    });
+
+    setTopPredictors(topList);
+  };
+
+  // Get winner name for display
+  const getWinnerName = (nomineeId) => {
+    const nominee = allNominees.find((n) => n.id === nomineeId);
+    return nominee ? nominee.full_name || nominee.user_name : "Chưa chọn";
+  };
+
+  // Get category display name with icon from config
+  const getCategoryDisplayName = (categoryId) => {
+    // First, check if it's a sub-category
+    for (const cat of categories) {
+      if (cat.sub_categories) {
+        const subCat = cat.sub_categories.find((sub) => sub.id === categoryId);
+        if (subCat) {
+          return `${cat.icon} ${cat.name} - ${subCat.name}`;
+        }
+      }
+    }
+    // Check if it's a main category
+    const category = categories.find((cat) => cat.id === categoryId);
+    if (category) {
+      return `${category.icon} ${category.name}`;
+    }
+    return categoryId; // Fallback to ID if not found
   };
 
   // Get nominees for a specific category/role
@@ -741,77 +814,169 @@ export default function AdminPage() {
                   className="btn btn-secondary"
                   onClick={() => {
                     setSelectedWinners({});
-                    setPredictionResults([]);
+                    setPredictionResults({});
+                    setTopPredictors([]);
                   }}
                 >
                   🗑️ Xóa tất cả
                 </button>
               </div>
 
-              {/* Results Table */}
-              {predictionResults.length > 0 && (
-                <div>
-                  <h4 style={{ marginBottom: "1rem", color: "var(--gold)" }}>📊 Kết quả: {predictionResults.length} lượt dự đoán</h4>
-                  <div style={{ overflowX: "auto" }}>
-                    <table className="admin-table">
-                      <thead>
-                        <tr>
-                          <th>Hạng</th>
-                          <th>Người dự đoán</th>
-                          <th>Số hạng mục đúng</th>
-                          <th>Hạng mục đoán đúng</th>
-                          <th>Thời gian dự đoán</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {predictionResults.map((result, index) => (
-                          <tr
-                            key={result.session_id}
+              {/* Overall Top Predictors Ranking */}
+              {topPredictors.length > 0 && (
+                <div className="top-predictors-section">
+                  <div className="top-predictors-header">
+                    <h4 style={{ margin: 0, color: "var(--gold)", display: "flex", alignItems: "center", gap: "0.5rem" }}>🏆 Bảng Xếp Hạng Tổng Hợp - Người Dự Đoán Đúng Nhiều Nhất</h4>
+                    <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.9rem", color: "#aaa" }}>Top những người dự đoán chính xác nhiều hạng mục nhất</p>
+                  </div>
+
+                  <div className="top-predictors-podium">
+                    {topPredictors.slice(0, 10).map((predictor, index) => {
+                      const accuracy = Math.round((predictor.total_correct_categories / Object.keys(selectedWinners).length) * 100);
+                      return (
+                        <div
+                          key={predictor.voter_email || predictor.voter_id}
+                          className={`predictor-rank-card ${index < 3 ? "top-three" : ""}`}
+                          style={{
+                            order: index === 0 ? 2 : index === 1 ? 1 : index === 2 ? 3 : index + 1,
+                          }}
+                        >
+                          <div
+                            className="rank-number"
                             style={{
-                              background: index < 3 ? "rgba(251, 191, 36, 0.1)" : "transparent",
+                              background: index === 0 ? "linear-gradient(135deg, #FFD700, #FFA500)" : index === 1 ? "linear-gradient(135deg, #C0C0C0, #A8A8A8)" : index === 2 ? "linear-gradient(135deg, #CD7F32, #B87333)" : "#555",
+                              color: index < 3 ? "#000" : "#fff",
                             }}
                           >
-                            <td>
-                              <div
-                                style={{
-                                  width: 28,
-                                  height: 28,
-                                  borderRadius: "50%",
-                                  background: index === 0 ? "#FFD700" : index === 1 ? "#C0C0C0" : index === 2 ? "#CD7F32" : "#666",
-                                  color: index < 3 ? "#000" : "#fff",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  fontWeight: "bold",
-                                  fontSize: "0.85rem",
-                                }}
-                              >
-                                {index + 1}
+                            {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`}
+                          </div>
+
+                          <div className="predictor-avatar-large">{predictor.voter_avatar ? <img src={predictor.voter_avatar} alt="" /> : <div className="avatar-placeholder-large">{predictor.voter_name?.[0]?.toUpperCase() || "?"}</div>}</div>
+
+                          <div className="predictor-info-large">
+                            <div className="predictor-name-large">{predictor.voter_name}</div>
+                            <div className="predictor-email-small">{predictor.voter_email}</div>
+                          </div>
+
+                          <div className="predictor-stats-grid">
+                            <div className="stat-box">
+                              <div className="stat-value" style={{ color: "var(--gold)" }}>
+                                {predictor.total_correct_categories}
                               </div>
-                            </td>
-                            <td>
-                              <div style={{ fontWeight: "bold" }}>{result.voter_name}</div>
-                              <div style={{ fontSize: "0.8em", color: "#888" }}>{result.voter_email}</div>
-                            </td>
-                            <td>
-                              <span
-                                style={{
-                                  fontWeight: "bold",
-                                  fontSize: "1.2rem",
-                                  color: result.correct_count > 0 ? "var(--gold)" : "#888",
-                                }}
-                              >
-                                {result.correct_count}
-                              </span>
-                              <span style={{ color: "#888", fontSize: "0.85rem" }}>/{Object.keys(selectedWinners).length}</span>
-                              <span style={{ marginLeft: "0.5rem", fontSize: "0.8rem", color: result.correct_count > 0 ? "#10b981" : "#888" }}>({result.accuracy_percent}%)</span>
-                            </td>
-                            <td>{result.correct_categories.length > 0 ? <div style={{ fontSize: "0.85rem" }}>{result.correct_categories.join(", ")}</div> : <span style={{ color: "#888", fontStyle: "italic" }}>Không có</span>}</td>
-                            <td style={{ fontSize: "0.85rem", color: "#aaa" }}>{formatDate(result.created_at)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                              <div className="stat-label">Hạng mục đúng</div>
+                            </div>
+                            <div className="stat-box">
+                              <div className="stat-value" style={{ color: "#10b981" }}>
+                                {accuracy}%
+                              </div>
+                              <div className="stat-label">Độ chính xác</div>
+                            </div>
+                            <div className="stat-box">
+                              <div className="stat-value" style={{ color: "#60a5fa" }}>
+                                {predictor.total_predictions}
+                              </div>
+                              <div className="stat-label">Tổng lượt đoán</div>
+                            </div>
+                          </div>
+
+                          <div className="categories-won">
+                            <div className="categories-won-label">Các hạng mục đoán đúng:</div>
+                            <div className="categories-won-list">
+                              {predictor.categories_details.map((cat) => (
+                                <span key={cat.category_id} className="category-badge-small">
+                                  {getCategoryDisplayName(cat.category_id)}
+                                  {cat.prediction_count > 1 && ` (${cat.prediction_count}x)`}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Results by Category */}
+              {Object.keys(predictionResults).length > 0 && (
+                <div className="results-by-category">
+                  <h4 style={{ marginBottom: "1.5rem", color: "var(--gold)", display: "flex", alignItems: "center", gap: "0.5rem" }}>📊 Kết quả theo từng hạng mục</h4>
+
+                  <div className="category-results-grid">
+                    {Object.values(predictionResults).map((categoryResult) => (
+                      <div key={categoryResult.category_id} className="category-result-card">
+                        <div className="category-result-header">
+                          <h5>{getCategoryDisplayName(categoryResult.category_id)}</h5>
+                          <div className="winner-info">
+                            <span className="winner-label">🏆 Người được vinh danh:</span>
+                            <span className="winner-name">{getWinnerName(categoryResult.winner_id)}</span>
+                          </div>
+                          <div className="category-stats">
+                            <span className="stat-item">
+                              <strong>{categoryResult.unique_voters}</strong> người đoán đúng
+                            </span>
+                            <span className="stat-divider">•</span>
+                            <span className="stat-item">
+                              <strong>{categoryResult.total_correct_predictions}</strong> lượt dự đoán
+                            </span>
+                          </div>
+                        </div>
+
+                        {categoryResult.voters.length > 0 ? (
+                          <div className="voters-list">
+                            <table className="admin-table compact">
+                              <thead>
+                                <tr>
+                                  <th style={{ width: "50px" }}>Hạng</th>
+                                  <th>Người dự đoán</th>
+                                  <th style={{ width: "100px", textAlign: "center" }}>Số lần đoán</th>
+                                  <th style={{ width: "160px" }}>Dự đoán đầu tiên</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {categoryResult.voters.map((voter, index) => (
+                                  <tr
+                                    key={voter.voter_email || voter.voter_id}
+                                    style={{
+                                      background: index < 3 ? "rgba(251, 191, 36, 0.08)" : "transparent",
+                                    }}
+                                  >
+                                    <td>
+                                      <div
+                                        className="rank-badge"
+                                        style={{
+                                          background: index === 0 ? "#FFD700" : index === 1 ? "#C0C0C0" : index === 2 ? "#CD7F32" : "#555",
+                                          color: index < 3 ? "#000" : "#fff",
+                                        }}
+                                      >
+                                        {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : index + 1}
+                                      </div>
+                                    </td>
+                                    <td>
+                                      <div className="voter-info">
+                                        {voter.voter_avatar ? <img src={voter.voter_avatar} alt="" className="voter-avatar-small" /> : <div className="voter-avatar-placeholder">{voter.voter_name?.[0]?.toUpperCase() || "?"}</div>}
+                                        <div>
+                                          <div style={{ fontWeight: "600" }}>{voter.voter_name}</div>
+                                          <div style={{ fontSize: "0.8em", color: "#888" }}>{voter.voter_email}</div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td style={{ textAlign: "center" }}>
+                                      <span className="prediction-count-badge">{voter.prediction_count}</span>
+                                    </td>
+                                    <td style={{ fontSize: "0.85rem", color: "#aaa" }}>{formatDate(voter.first_prediction_time)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="no-voters">
+                            <span>😢 Không có ai dự đoán đúng hạng mục này</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -1249,6 +1414,281 @@ export default function AdminPage() {
                     border-radius: 8px;
                     color: #FCD34D;
                     font-size: 0.9rem;
+                }
+
+                /* Results by Category Styles */
+                .results-by-category {
+                    margin-top: 1rem;
+                }
+                .category-results-grid {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1.5rem;
+                }
+                .category-result-card {
+                    background: rgba(255, 255, 255, 0.03);
+                    border-radius: 12px;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    overflow: hidden;
+                }
+                .category-result-header {
+                    padding: 1rem 1.25rem;
+                    background: rgba(252, 211, 77, 0.05);
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                }
+                .category-result-header h5 {
+                    margin: 0 0 0.75rem 0;
+                    font-size: 1.1rem;
+                    color: #FCD34D;
+                }
+                .winner-info {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin-bottom: 0.5rem;
+                    font-size: 0.9rem;
+                }
+                .winner-label {
+                    color: #888;
+                }
+                .winner-name {
+                    font-weight: 600;
+                    color: #fff;
+                }
+                .category-stats {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                    font-size: 0.85rem;
+                    color: #aaa;
+                }
+                .category-stats strong {
+                    color: #FCD34D;
+                }
+                .stat-divider {
+                    color: #555;
+                }
+                .voters-list {
+                    padding: 0.5rem;
+                }
+                .admin-table.compact th,
+                .admin-table.compact td {
+                    padding: 0.6rem 0.75rem;
+                }
+                .rank-badge {
+                    width: 28px;
+                    height: 28px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: bold;
+                    font-size: 0.85rem;
+                }
+                .voter-info {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.6rem;
+                }
+                .voter-avatar-small {
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 50%;
+                    object-fit: cover;
+                }
+                .voter-avatar-placeholder {
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: bold;
+                    font-size: 0.85rem;
+                }
+                .prediction-count-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-width: 28px;
+                    padding: 0.25rem 0.5rem;
+                    background: rgba(252, 211, 77, 0.15);
+                    color: #FCD34D;
+                    border-radius: 20px;
+                    font-weight: 700;
+                    font-size: 0.95rem;
+                }
+                .no-voters {
+                    padding: 2rem;
+                    text-align: center;
+                    color: #888;
+                    font-style: italic;
+                }
+
+                /* Top Predictors Overall Ranking Styles */
+                .top-predictors-section {
+                    margin-bottom: 3rem;
+                    padding: 1.5rem;
+                    background: linear-gradient(135deg, rgba(252, 211, 77, 0.1) 0%, rgba(251, 191, 36, 0.05) 100%);
+                    border-radius: 16px;
+                    border: 2px solid rgba(252, 211, 77, 0.3);
+                }
+                .top-predictors-header {
+                    margin-bottom: 1.5rem;
+                    text-align: center;
+                }
+                .top-predictors-podium {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+                    gap: 1.5rem;
+                    margin-top: 1.5rem;
+                }
+                .predictor-rank-card {
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 12px;
+                    padding: 1.5rem;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    transition: all 0.3s ease;
+                    position: relative;
+                }
+                .predictor-rank-card.top-three {
+                    border: 2px solid var(--gold);
+                    background: rgba(252, 211, 77, 0.08);
+                }
+                .predictor-rank-card:hover {
+                    transform: translateY(-4px);
+                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+                    border-color: var(--gold);
+                }
+                .rank-number {
+                    position: absolute;
+                    top: -12px;
+                    right: 1rem;
+                    width: 48px;
+                    height: 48px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: bold;
+                    font-size: 1.2rem;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                    border: 3px solid #1a1a1a;
+                }
+                .predictor-avatar-large {
+                    width: 80px;
+                    height: 80px;
+                    margin: 0 auto 1rem;
+                    border-radius: 50%;
+                    overflow: hidden;
+                    border: 3px solid var(--gold);
+                    box-shadow: 0 4px 12px rgba(252, 211, 77, 0.3);
+                }
+                .predictor-avatar-large img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                }
+                .avatar-placeholder-large {
+                    width: 100%;
+                    height: 100%;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: bold;
+                    font-size: 2rem;
+                }
+                .predictor-info-large {
+                    text-align: center;
+                    margin-bottom: 1rem;
+                }
+                .predictor-name-large {
+                    font-size: 1.1rem;
+                    font-weight: 700;
+                    color: #fff;
+                    margin-bottom: 0.25rem;
+                }
+                .predictor-email-small {
+                    font-size: 0.8rem;
+                    color: #888;
+                }
+                .predictor-stats-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 0.75rem;
+                    margin-bottom: 1rem;
+                    padding: 1rem 0;
+                    border-top: 1px solid rgba(255, 255, 255, 0.1);
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                }
+                .stat-box {
+                    text-align: center;
+                }
+                .stat-value {
+                    font-size: 1.5rem;
+                    font-weight: 700;
+                    margin-bottom: 0.25rem;
+                }
+                .stat-label {
+                    font-size: 0.7rem;
+                    color: #888;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                .categories-won {
+                    margin-top: 1rem;
+                }
+                .categories-won-label {
+                    font-size: 0.75rem;
+                    color: #aaa;
+                    margin-bottom: 0.5rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                .categories-won-list {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 0.4rem;
+                }
+                .category-badge-small {
+                    display: inline-block;
+                    padding: 0.25rem 0.5rem;
+                    background: rgba(252, 211, 77, 0.15);
+                    color: #FCD34D;
+                    border-radius: 6px;
+                    font-size: 0.75rem;
+                    font-weight: 500;
+                    border: 1px solid rgba(252, 211, 77, 0.3);
+                }
+
+                @media (max-width: 768px) {
+                    .category-result-header {
+                        padding: 0.75rem 1rem;
+                    }
+                    .winner-info {
+                        flex-wrap: wrap;
+                    }
+                    .category-stats {
+                        flex-wrap: wrap;
+                        gap: 0.5rem;
+                    }
+                    .top-predictors-podium {
+                        grid-template-columns: 1fr;
+                    }
+                    .predictor-stats-grid {
+                        grid-template-columns: repeat(3, 1fr);
+                        gap: 0.5rem;
+                    }
+                    .stat-value {
+                        font-size: 1.2rem;
+                    }
+                    .stat-label {
+                        font-size: 0.65rem;
+                    }
                 }
             `}</style>
     </div>

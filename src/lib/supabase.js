@@ -653,6 +653,117 @@ export async function findCorrectPredictions(winners) {
 }
 
 /**
+ * Find correct predictions grouped by category
+ * Returns results for each category with users who predicted correctly and their prediction count
+ */
+export async function findCorrectPredictionsByCategory(winners) {
+  if (!supabase) {
+    return {};
+  }
+
+  try {
+    // Get all votes with session and voter info
+    const { data: allVotes, error } = await supabase
+      .from("votes")
+      .select(
+        `
+        id,
+        session_id,
+        voter_id,
+        voter_email,
+        category_id,
+        category_name,
+        nominee_id,
+        vote_sessions (
+          id,
+          voter_name,
+          voter_email,
+          created_at
+        ),
+        users:voter_id (
+          id,
+          user_name,
+          full_name,
+          url_avatar
+        )
+      `
+      )
+      .order("created_at", { foreignTable: "vote_sessions", ascending: true });
+
+    if (error) {
+      console.error("Error fetching votes:", error);
+      return {};
+    }
+
+    // Group results by category
+    const resultsByCategory = {};
+
+    // Process each selected winner category
+    Object.entries(winners).forEach(([categoryId, winnerId]) => {
+      if (!winnerId) return;
+
+      // Find all votes for this category that predicted the winner correctly
+      const correctVotes = allVotes.filter((vote) => vote.category_id === categoryId && vote.nominee_id === winnerId);
+
+      // Group by voter (email) to count how many times each person predicted correctly
+      const voterMap = new Map();
+
+      correctVotes.forEach((vote) => {
+        const voterKey = vote.voter_email || vote.voter_id;
+        if (!voterMap.has(voterKey)) {
+          voterMap.set(voterKey, {
+            voter_id: vote.voter_id,
+            voter_email: vote.voter_email,
+            voter_name: vote.vote_sessions?.voter_name || vote.users?.full_name || vote.users?.user_name || "Unknown",
+            voter_avatar: vote.users?.url_avatar,
+            prediction_count: 0,
+            first_prediction_time: vote.vote_sessions?.created_at,
+            sessions: [],
+          });
+        }
+
+        const voter = voterMap.get(voterKey);
+        voter.prediction_count++;
+        voter.sessions.push({
+          session_id: vote.session_id,
+          created_at: vote.vote_sessions?.created_at,
+        });
+
+        // Keep track of the earliest prediction
+        if (vote.vote_sessions?.created_at < voter.first_prediction_time) {
+          voter.first_prediction_time = vote.vote_sessions?.created_at;
+        }
+      });
+
+      // Convert to array and sort by prediction count (desc), then by first prediction time (asc)
+      const votersArray = Array.from(voterMap.values()).sort((a, b) => {
+        if (b.prediction_count !== a.prediction_count) {
+          return b.prediction_count - a.prediction_count;
+        }
+        return new Date(a.first_prediction_time) - new Date(b.first_prediction_time);
+      });
+
+      // Get category name from first vote or use categoryId
+      const categoryName = correctVotes[0]?.category_name || categoryId;
+
+      resultsByCategory[categoryId] = {
+        category_id: categoryId,
+        category_name: categoryName,
+        winner_id: winnerId,
+        total_correct_predictions: correctVotes.length,
+        unique_voters: votersArray.length,
+        voters: votersArray,
+      };
+    });
+
+    return resultsByCategory;
+  } catch (err) {
+    console.error("Error finding correct predictions by category:", err);
+    return {};
+  }
+}
+
+/**
  * Get all nominees grouped by role for winner selection
  */
 export async function getNomineesForWinnerSelection() {
