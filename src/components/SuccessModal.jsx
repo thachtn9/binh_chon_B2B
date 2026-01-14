@@ -1,52 +1,43 @@
-import { useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 export default function SuccessModal({ isOpen, onClose, amount, categoryCount = 0 }) {
-    const navigate = useNavigate()
-    const [isVisible, setIsVisible] = useState(false)
+  const navigate = useNavigate();
+  const [isVisible, setIsVisible] = useState(false);
 
-    useEffect(() => {
-        if (isOpen) {
-            setIsVisible(true)
-        } else {
-            const timer = setTimeout(() => setIsVisible(false), 300)
-            return () => clearTimeout(timer)
-        }
-    }, [isOpen])
+  useEffect(() => {
+    if (isOpen) {
+      setIsVisible(true);
+    } else {
+      const timer = setTimeout(() => setIsVisible(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
-    if (!isVisible && !isOpen) return null
+  if (!isVisible && !isOpen) return null;
 
-    return (
-        <div className={`modal-overlay ${isOpen ? 'open' : ''}`}>
-            <div className={`modal-content ${isOpen ? 'open' : ''}`}>
-                <div className="modal-icon">
-                    🎉
-                </div>
-                <h2 className="modal-title">Dự đoán thành công!</h2>
-                <p className="modal-message">
-                    Bạn đã dự đoán <span className="highlight">{categoryCount} hạng mục</span> và
-                    đóng góp <span className="highlight">{amount}</span> vào quỹ giải thưởng.
-                </p>
-                <p className="modal-tip">
-                    💡 <strong>Tip:</strong> Bạn có thể dự đoán 1 hạng mục nhiều lần để tăng cơ hội trúng thưởng!
-                </p>
-                <div className="modal-actions">
-                    <button
-                        className="btn btn-secondary"
-                        onClick={onClose}
-                    >
-                        Tiếp tục dự đoán
-                    </button>
-                    <button
-                        className="btn btn-primary"
-                        onClick={() => navigate('/history')}
-                    >
-                        Xem lịch sử
-                    </button>
-                </div>
-            </div>
+  return (
+    <div className={`modal-overlay ${isOpen ? "open" : ""}`}>
+      <div className={`modal-content ${isOpen ? "open" : ""}`}>
+        <div className="modal-icon">🎉</div>
+        <h2 className="modal-title">Dự đoán thành công!</h2>
+        <p className="modal-message">
+          Bạn đã dự đoán <span className="highlight">{categoryCount} hạng mục</span> và đóng góp <span className="highlight">{amount}</span> vào quỹ giải thưởng.
+        </p>
+        <p className="modal-tip">
+          💡 <strong>Tip:</strong> Bạn có thể dự đoán 1 hạng mục nhiều lần để tăng cơ hội trúng thưởng!
+        </p>
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={onClose}>
+            Tiếp tục dự đoán
+          </button>
+          <button className="btn btn-primary" onClick={() => navigate("/history")}>
+            Xem lịch sử
+          </button>
+        </div>
+      </div>
 
-            <style>{`
+      <style>{`
                 .modal-overlay {
                     position: fixed;
                     top: 0;
@@ -129,6 +120,6 @@ export default function SuccessModal({ isOpen, onClose, amount, categoryCount = 
                     to { transform: translateY(-10px); }
                 }
             `}</style>
-        </div>
-    )
+    </div>
+  );
 }
