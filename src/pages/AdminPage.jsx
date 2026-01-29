@@ -215,6 +215,7 @@ export default function AdminPage() {
   };
 
   // Calculate top predictors from category results
+  // Ưu tiên: số hạng mục đúng > tổng độ chênh lệch nhỏ nhất > thời gian dự đoán sớm nhất
   const calculateTopPredictors = (categoryResults) => {
     const voterMap = new Map();
 
@@ -229,30 +230,43 @@ export default function AdminPage() {
             voter_name: voter.voter_name,
             voter_avatar: voter.voter_avatar,
             total_correct_categories: 0,
-            total_predictions: 0,
+            total_prediction_diff: 0, // Tổng độ chênh lệch (càng nhỏ càng tốt)
+            earliest_prediction_time: voter.first_prediction_time,
             categories_details: [],
           });
         }
 
         const voterData = voterMap.get(key);
-        voterData.total_correct_categories += 1; // This voter predicted this category correctly
-        voterData.total_predictions += voter.prediction_count;
+        voterData.total_correct_categories += 1;
+        voterData.total_prediction_diff += voter.prediction_diff || 0;
+        
+        // Cập nhật thời gian dự đoán sớm nhất
+        if (voter.first_prediction_time < voterData.earliest_prediction_time) {
+          voterData.earliest_prediction_time = voter.first_prediction_time;
+        }
+        
         voterData.categories_details.push({
           category_id: catResult.category_id,
           category_name: catResult.category_name,
-          prediction_count: voter.prediction_count,
+          predicted_count: voter.predicted_count,
+          actual_count: catResult.actual_correct_count,
+          prediction_diff: voter.prediction_diff,
         });
       });
     });
 
     // Convert to array and sort
     const topList = Array.from(voterMap.values()).sort((a, b) => {
-      // First by number of correct categories (descending)
+      // 1. Ưu tiên số hạng mục đúng nhiều hơn (descending)
       if (b.total_correct_categories !== a.total_correct_categories) {
         return b.total_correct_categories - a.total_correct_categories;
       }
-      // Then by total predictions (descending)
-      return b.total_predictions - a.total_predictions;
+      // 2. Nếu bằng nhau, ưu tiên tổng độ chênh lệch nhỏ hơn (ascending)
+      if (a.total_prediction_diff !== b.total_prediction_diff) {
+        return a.total_prediction_diff - b.total_prediction_diff;
+      }
+      // 3. Nếu vẫn bằng nhau, ưu tiên người dự đoán sớm hơn
+      return new Date(a.earliest_prediction_time) - new Date(b.earliest_prediction_time);
     });
 
     setTopPredictors(topList);
@@ -826,8 +840,10 @@ export default function AdminPage() {
               {topPredictors.length > 0 && (
                 <div className="top-predictors-section">
                   <div className="top-predictors-header">
-                    <h4 style={{ margin: 0, color: "var(--gold)", display: "flex", alignItems: "center", gap: "0.5rem" }}>🏆 Bảng Xếp Hạng Tổng Hợp - Người Dự Đoán Đúng Nhiều Nhất</h4>
-                    <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.9rem", color: "#aaa" }}>Top những người dự đoán chính xác nhiều hạng mục nhất</p>
+                    <h4 style={{ margin: 0, color: "var(--gold)", display: "flex", alignItems: "center", gap: "0.5rem" }}>🏆 Bảng Xếp Hạng Tổng Hợp - Người Dự Đoán Chính Xác Nhất</h4>
+                    <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.9rem", color: "#aaa" }}>
+                      Ưu tiên: Số hạng mục đúng → Dự đoán số người gần đúng nhất → Thời gian sớm nhất
+                    </p>
                   </div>
 
                   <div className="top-predictors-podium">
@@ -872,20 +888,22 @@ export default function AdminPage() {
                               <div className="stat-label">Độ chính xác</div>
                             </div>
                             <div className="stat-box">
-                              <div className="stat-value" style={{ color: "#60a5fa" }}>
-                                {predictor.total_predictions}
+                              <div className="stat-value" style={{ color: predictor.total_prediction_diff === 0 ? "#10b981" : "#60a5fa" }}>
+                                ±{predictor.total_prediction_diff}
                               </div>
-                              <div className="stat-label">Tổng lượt đoán</div>
+                              <div className="stat-label">Tổng chênh lệch</div>
                             </div>
                           </div>
 
                           <div className="categories-won">
-                            <div className="categories-won-label">Các hạng mục đoán đúng:</div>
+                            <div className="categories-won-label">Chi tiết các hạng mục đoán đúng:</div>
                             <div className="categories-won-list">
                               {predictor.categories_details.map((cat) => (
-                                <span key={cat.category_id} className="category-badge-small">
+                                <span key={cat.category_id} className="category-badge-small" title={`Dự đoán: ${cat.predicted_count} | Thực tế: ${cat.actual_count} | Chênh lệch: ±${cat.prediction_diff}`}>
                                   {getCategoryDisplayName(cat.category_id)}
-                                  {cat.prediction_count > 1 && ` (${cat.prediction_count}x)`}
+                                  <span className="prediction-detail">
+                                    {cat.prediction_diff === 0 ? " 🎯" : ` (±${cat.prediction_diff})`}
+                                  </span>
                                 </span>
                               ))}
                             </div>
@@ -917,7 +935,7 @@ export default function AdminPage() {
                             </span>
                             <span className="stat-divider">•</span>
                             <span className="stat-item">
-                              <strong>{categoryResult.total_correct_predictions}</strong> lượt dự đoán
+                              Số thực tế: <strong style={{ color: "var(--gold)" }}>{categoryResult.actual_correct_count}</strong>
                             </span>
                           </div>
                         </div>
@@ -929,8 +947,9 @@ export default function AdminPage() {
                                 <tr>
                                   <th style={{ width: "50px" }}>Hạng</th>
                                   <th>Người dự đoán</th>
-                                  <th style={{ width: "100px", textAlign: "center" }}>Số lần đoán</th>
-                                  <th style={{ width: "160px" }}>Dự đoán đầu tiên</th>
+                                  <th style={{ width: "100px", textAlign: "center" }}>Dự đoán</th>
+                                  <th style={{ width: "80px", textAlign: "center" }}>Chênh lệch</th>
+                                  <th style={{ width: "140px" }}>Thời gian</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -962,7 +981,17 @@ export default function AdminPage() {
                                       </div>
                                     </td>
                                     <td style={{ textAlign: "center" }}>
-                                      <span className="prediction-count-badge">{voter.prediction_count}</span>
+                                      <span className="prediction-count-badge" title={`Dự đoán ${voter.predicted_count} người sẽ chọn giống`}>
+                                        👥 {voter.predicted_count}
+                                      </span>
+                                    </td>
+                                    <td style={{ textAlign: "center" }}>
+                                      <span 
+                                        className={`diff-badge ${voter.prediction_diff === 0 ? 'perfect' : voter.prediction_diff <= 2 ? 'close' : ''}`}
+                                        title={`Chênh lệch ${voter.prediction_diff} so với thực tế (${categoryResult.actual_correct_count})`}
+                                      >
+                                        {voter.prediction_diff === 0 ? '🎯 Chính xác!' : `±${voter.prediction_diff}`}
+                                      </span>
                                     </td>
                                     <td style={{ fontSize: "0.85rem", color: "#aaa" }}>{formatDate(voter.first_prediction_time)}</td>
                                   </tr>
@@ -1512,13 +1541,38 @@ export default function AdminPage() {
                     display: inline-flex;
                     align-items: center;
                     justify-content: center;
+                    gap: 0.25rem;
                     min-width: 28px;
                     padding: 0.25rem 0.5rem;
-                    background: rgba(252, 211, 77, 0.15);
-                    color: #FCD34D;
+                    background: rgba(99, 102, 241, 0.15);
+                    color: #818cf8;
                     border-radius: 20px;
-                    font-weight: 700;
-                    font-size: 0.95rem;
+                    font-weight: 600;
+                    font-size: 0.85rem;
+                }
+                .diff-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-width: 50px;
+                    padding: 0.25rem 0.5rem;
+                    background: rgba(255, 255, 255, 0.1);
+                    color: #aaa;
+                    border-radius: 20px;
+                    font-weight: 600;
+                    font-size: 0.8rem;
+                }
+                .diff-badge.perfect {
+                    background: rgba(16, 185, 129, 0.2);
+                    color: #10b981;
+                }
+                .diff-badge.close {
+                    background: rgba(251, 191, 36, 0.15);
+                    color: #fbbf24;
+                }
+                .prediction-detail {
+                    font-size: 0.8em;
+                    opacity: 0.8;
                 }
                 .no-voters {
                     padding: 2rem;

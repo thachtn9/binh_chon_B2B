@@ -54,11 +54,35 @@ CREATE TABLE IF NOT EXISTS votes (
   -- Nominee từ bảng users
   nominee_id UUID REFERENCES users(id) ON DELETE CASCADE,
   
+  -- Số người dự đoán giống (user dự đoán sẽ có bao nhiêu người chọn giống mình)
+  predicted_count INT DEFAULT 0,
+  
   amount INT DEFAULT 10000,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 4. SETTINGS TABLE
+-- 4. COMMENTS TABLE
+-- Bình luận cho các đề cử (nominees)
+CREATE TABLE IF NOT EXISTS comments (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  -- Người được comment (nominee)
+  nominee_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  -- Người comment
+  commenter_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  commenter_email VARCHAR(255) NOT NULL,
+  commenter_name VARCHAR(100),
+  commenter_avatar TEXT,
+  -- Nội dung comment
+  content TEXT NOT NULL,
+  -- Comment ẩn danh (không hiển thị tên người comment)
+  is_anonymous BOOLEAN DEFAULT FALSE,
+  -- Trạng thái (để có thể ẩn/xóa comment không phù hợp)
+  is_visible BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 5. SETTINGS TABLE
 -- Cấu hình bình chọn (chỉ có 1 row duy nhất với key = 'voting_config')
 CREATE TABLE IF NOT EXISTS settings (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -94,6 +118,9 @@ CREATE INDEX IF NOT EXISTS idx_votes_session_id ON votes(session_id);
 CREATE INDEX IF NOT EXISTS idx_votes_voter_id ON votes(voter_id);
 CREATE INDEX IF NOT EXISTS idx_vote_sessions_voter_id ON vote_sessions(voter_id);
 CREATE INDEX IF NOT EXISTS idx_vote_sessions_voter_email ON vote_sessions(voter_email);
+CREATE INDEX IF NOT EXISTS idx_comments_nominee_id ON comments(nominee_id);
+CREATE INDEX IF NOT EXISTS idx_comments_commenter_email ON comments(commenter_email);
+CREATE INDEX IF NOT EXISTS idx_comments_created_at ON comments(created_at);
 
 -- =============================================
 -- VIEWS

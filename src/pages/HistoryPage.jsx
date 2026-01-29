@@ -114,6 +114,11 @@ export default function HistoryPage() {
                           }}
                         />
                         <span>{vote.nominee_name}</span>
+                        {vote.predicted_count > 0 && (
+                          <span className="predicted-count-badge" title="Số người dự đoán giống bạn">
+                            👥 {vote.predicted_count}
+                          </span>
+                        )}
                       </span>
                     ))}
                   </div>

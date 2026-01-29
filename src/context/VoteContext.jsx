@@ -121,11 +121,23 @@ export function VoteProvider({ children }) {
     const VOTE_COST = settings.vote_cost || defaultSettings.vote_cost
 
     // Select a nominee for a category or sub-category
-    const selectNominee = (categoryId, nomineeId) => {
+    // selections now stores { categoryId: { nomineeId, predictedCount } }
+    const selectNominee = (categoryId, nomineeId, predictedCount = 0) => {
         setSelections(prev => ({
             ...prev,
-            [categoryId]: nomineeId
+            [categoryId]: { nomineeId, predictedCount }
         }))
+    }
+
+    // Update predicted count for a category
+    const updatePredictedCount = (categoryId, predictedCount) => {
+        setSelections(prev => {
+            if (!prev[categoryId]) return prev
+            return {
+                ...prev,
+                [categoryId]: { ...prev[categoryId], predictedCount }
+            }
+        })
     }
 
     // Clear selection for a category
@@ -158,7 +170,7 @@ export function VoteProvider({ children }) {
     // Check if all categories are selected (including sub-categories)
     const isAllSelected = () => {
         const requiredIds = getAllRequiredSelectionIds()
-        return requiredIds.every(id => selections[id])
+        return requiredIds.every(id => selections[id]?.nomineeId)
     }
 
     // Get remaining categories/sub-categories to select
@@ -167,7 +179,7 @@ export function VoteProvider({ children }) {
         categories.forEach(cat => {
             if (cat.sub_categories) {
                 cat.sub_categories.forEach(sub => {
-                    if (!selections[sub.id]) {
+                    if (!selections[sub.id]?.nomineeId) {
                         remaining.push({
                             id: sub.id,
                             name: `${cat.name} - ${sub.name}`,
@@ -176,7 +188,7 @@ export function VoteProvider({ children }) {
                     }
                 })
             } else {
-                if (!selections[cat.id]) {
+                if (!selections[cat.id]?.nomineeId) {
                     remaining.push({
                         id: cat.id,
                         name: cat.name,
@@ -231,7 +243,8 @@ export function VoteProvider({ children }) {
             throw new Error('Vui lòng chọn ít nhất một hạng mục để dự đoán')
         }
 
-        const votes = Object.entries(selections).map(([categoryId, nomineeId]) => {
+        const votes = Object.entries(selections).map(([categoryId, selection]) => {
+            const { nomineeId, predictedCount = 0 } = selection
             // Find category or sub-category info
             let categoryName = ''
             let categoryIcon = ''
@@ -260,6 +273,7 @@ export function VoteProvider({ children }) {
                 nominee_id: nomineeId,
                 nominee_name: nominee?.user_name,
                 nominee_avatar: nominee?.url_avatar,
+                predicted_count: predictedCount,
                 amount: VOTE_COST // Mỗi hạng mục có chi phí vote_cost
             }
         })
@@ -407,6 +421,7 @@ export function VoteProvider({ children }) {
 
         // Actions
         selectNominee,
+        updatePredictedCount,
         clearSelection,
         clearAllSelections,
         submitVotes,

@@ -3,11 +3,12 @@ import { useAuth } from '../context/AuthContext'
 import { useVote } from '../context/VoteContext'
 import NomineeCard from '../components/NomineeCard'
 import VoteSummary from '../components/VoteSummary'
+import PredictionModal from '../components/PredictionModal'
 import { categories, fetchNomineesForCategory, formatCurrency } from '../lib/supabase'
 
 export default function VotePage() {
     const { user, signInWithGoogle, canVote, permissionMessage, permissionLoading, voteUser } = useAuth()
-    const { selectedCount, TOTAL_CATEGORIES, VOTE_COST, selections, isVotingOpen, votingStatus, loadUserHistory } = useVote()
+    const { selectedCount, TOTAL_CATEGORIES, VOTE_COST, selections, isVotingOpen, votingStatus, loadUserHistory, selectNominee } = useVote()
     const [activeCategory, setActiveCategory] = useState(categories[0])
     const [activeSubCategory, setActiveSubCategory] = useState(
         categories[0].sub_categories ? categories[0].sub_categories[0].id : null
@@ -19,6 +20,12 @@ export default function VotePage() {
     // State for nominees loaded from database
     const [nominees, setNominees] = useState([])
     const [nomineesLoading, setNomineesLoading] = useState(true)
+
+    // State for prediction modal
+    const [modalOpen, setModalOpen] = useState(false)
+    const [selectedNominee, setSelectedNominee] = useState(null)
+    const [selectedCategoryId, setSelectedCategoryId] = useState(null)
+    const [selectedCategoryName, setSelectedCategoryName] = useState('')
 
     // Auto-load user vote history from database when page loads
     useEffect(() => {
@@ -43,6 +50,21 @@ export default function VotePage() {
         }
         loadNominees()
     }, [activeCategory, activeSubCategory])
+
+    // Handle nominee selection - open modal
+    const handleNomineeSelect = (nominee, categoryId, categoryName) => {
+        setSelectedNominee(nominee)
+        setSelectedCategoryId(categoryId)
+        setSelectedCategoryName(categoryName)
+        setModalOpen(true)
+    }
+
+    // Handle confirm from modal
+    const handlePredictionConfirm = (predictedCount) => {
+        if (selectedNominee && selectedCategoryId) {
+            selectNominee(selectedCategoryId, selectedNominee.id, predictedCount)
+        }
+    }
 
     // Filter nominees by search term and sort (current user first)
     const filteredNominees = nominees
@@ -102,15 +124,15 @@ export default function VotePage() {
     // Check if category is fully completed (including all sub-categories)
     const isCategoryCompleted = (category) => {
         if (category.sub_categories) {
-            return category.sub_categories.every(sub => selections[sub.id])
+            return category.sub_categories.every(sub => selections[sub.id]?.nomineeId)
         }
-        return selections[category.id]
+        return selections[category.id]?.nomineeId
     }
 
     // Get completion count for category with sub-categories
     const getSubCategoryCompletionCount = (category) => {
         if (!category.sub_categories) return 0
-        return category.sub_categories.filter(sub => selections[sub.id]).length
+        return category.sub_categories.filter(sub => selections[sub.id]?.nomineeId).length
     }
 
     return (
@@ -239,7 +261,7 @@ export default function VotePage() {
                         <div className="sub-category-tabs">
                             {activeCategory.sub_categories.map(subCat => {
                                 const isSubActive = activeSubCategory === subCat.id
-                                const isSubCompleted = selections[subCat.id]
+                                const isSubCompleted = selections[subCat.id]?.nomineeId
 
                                 return (
                                     <button
@@ -283,20 +305,29 @@ export default function VotePage() {
                                 <p>Đang tải danh sách ứng viên...</p>
                             </div>
                         ) : filteredNominees.length > 0 ? (
-                            filteredNominees.map((nominee, index) => (
-                                <div
-                                    key={nominee.id}
-                                    className={`nominee-animate ${isAnimating ? 'animate-in' : ''}`}
-                                    style={{
-                                        animationDelay: isAnimating ? `${index * 50}ms` : '0ms'
-                                    }}
-                                >
-                                    <NomineeCard
-                                        nominee={nominee}
-                                        categoryId={activeSubCategory || activeCategory.id}
-                                    />
-                                </div>
-                            ))
+                            filteredNominees.map((nominee, index) => {
+                                const currentCategoryId = activeSubCategory || activeCategory.id
+                                const currentCategoryName = activeSubCategory 
+                                    ? `${activeCategory.name} - ${activeCategory.sub_categories?.find(s => s.id === activeSubCategory)?.name || ''}`
+                                    : activeCategory.name
+                                
+                                return (
+                                    <div
+                                        key={nominee.id}
+                                        className={`nominee-animate ${isAnimating ? 'animate-in' : ''}`}
+                                        style={{
+                                            animationDelay: isAnimating ? `${index * 50}ms` : '0ms'
+                                        }}
+                                    >
+                                        <NomineeCard
+                                            nominee={nominee}
+                                            categoryId={currentCategoryId}
+                                            categoryName={currentCategoryName}
+                                            onSelect={handleNomineeSelect}
+                                        />
+                                    </div>
+                                )
+                            })
                         ) : (
                             <div className="empty-state">
                                 <div className="empty-state-icon">🔍</div>
@@ -317,6 +348,16 @@ export default function VotePage() {
 
             {/* Vote Summary - floating bottom bar */}
             <VoteSummary />
+
+            {/* Prediction Modal */}
+            <PredictionModal
+                isOpen={modalOpen}
+                onClose={() => setModalOpen(false)}
+                nominee={selectedNominee}
+                categoryName={selectedCategoryName}
+                onConfirm={handlePredictionConfirm}
+                initialCount={selections[selectedCategoryId]?.predictedCount || 0}
+            />
 
             {/* Spacer for fixed bottom bar */}
             <div style={{ height: '100px' }} />

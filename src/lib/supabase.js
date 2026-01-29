@@ -322,6 +322,7 @@ export async function submitVotesToDB(voterId, voterEmail, voterName, votes, tot
     category_id: vote.category_id,
     category_name: vote.category_name,
     nominee_id: vote.nominee_id, // UUID from users table
+    predicted_count: vote.predicted_count || 0, // Số người dự đoán giống
     amount: vote.amount, // Mỗi hạng mục có chi phí vote_cost
   }));
 
@@ -654,7 +655,8 @@ export async function findCorrectPredictions(winners) {
 
 /**
  * Find correct predictions grouped by category
- * Returns results for each category with users who predicted correctly and their prediction count
+ * Returns results for each category with users who predicted correctly
+ * Priority: users with predicted_count closest to actual count of voters who chose the same nominee
  */
 export async function findCorrectPredictionsByCategory(winners) {
   if (!supabase) {
@@ -674,6 +676,7 @@ export async function findCorrectPredictionsByCategory(winners) {
         category_id,
         category_name,
         nominee_id,
+        predicted_count,
         vote_sessions (
           id,
           voter_name,
@@ -705,7 +708,11 @@ export async function findCorrectPredictionsByCategory(winners) {
       // Find all votes for this category that predicted the winner correctly
       const correctVotes = allVotes.filter((vote) => vote.category_id === categoryId && vote.nominee_id === winnerId);
 
-      // Group by voter (email) to count how many times each person predicted correctly
+      // Số người thực tế đã chọn đúng nominee này (unique voters)
+      const uniqueVoterEmails = new Set(correctVotes.map(v => v.voter_email || v.voter_id));
+      const actualCorrectCount = uniqueVoterEmails.size;
+
+      // Group by voter (email) - chỉ lấy dự đoán đầu tiên của mỗi người
       const voterMap = new Map();
 
       correctVotes.forEach((vote) => {
@@ -716,30 +723,31 @@ export async function findCorrectPredictionsByCategory(winners) {
             voter_email: vote.voter_email,
             voter_name: vote.vote_sessions?.voter_name || vote.users?.full_name || vote.users?.user_name || "Unknown",
             voter_avatar: vote.users?.url_avatar,
-            prediction_count: 0,
+            predicted_count: vote.predicted_count || 0,
             first_prediction_time: vote.vote_sessions?.created_at,
-            sessions: [],
+            // Độ chênh lệch giữa dự đoán và thực tế
+            prediction_diff: Math.abs((vote.predicted_count || 0) - actualCorrectCount),
           });
-        }
-
-        const voter = voterMap.get(voterKey);
-        voter.prediction_count++;
-        voter.sessions.push({
-          session_id: vote.session_id,
-          created_at: vote.vote_sessions?.created_at,
-        });
-
-        // Keep track of the earliest prediction
-        if (vote.vote_sessions?.created_at < voter.first_prediction_time) {
-          voter.first_prediction_time = vote.vote_sessions?.created_at;
+        } else {
+          // Nếu đã có, kiểm tra xem dự đoán này có sớm hơn không và cập nhật predicted_count
+          const existing = voterMap.get(voterKey);
+          if (vote.vote_sessions?.created_at < existing.first_prediction_time) {
+            existing.first_prediction_time = vote.vote_sessions?.created_at;
+            existing.predicted_count = vote.predicted_count || 0;
+            existing.prediction_diff = Math.abs((vote.predicted_count || 0) - actualCorrectCount);
+          }
         }
       });
 
-      // Convert to array and sort by prediction count (desc), then by first prediction time (asc)
+      // Convert to array and sort:
+      // 1. Ưu tiên người có predicted_count gần đúng nhất (prediction_diff nhỏ nhất)
+      // 2. Nếu bằng nhau, ưu tiên người dự đoán sớm hơn
       const votersArray = Array.from(voterMap.values()).sort((a, b) => {
-        if (b.prediction_count !== a.prediction_count) {
-          return b.prediction_count - a.prediction_count;
+        // First: by prediction difference (ascending - smaller is better)
+        if (a.prediction_diff !== b.prediction_diff) {
+          return a.prediction_diff - b.prediction_diff;
         }
+        // Then: by first prediction time (ascending - earlier is better)
         return new Date(a.first_prediction_time) - new Date(b.first_prediction_time);
       });
 
@@ -750,6 +758,7 @@ export async function findCorrectPredictionsByCategory(winners) {
         category_id: categoryId,
         category_name: categoryName,
         winner_id: winnerId,
+        actual_correct_count: actualCorrectCount, // Số người thực tế chọn đúng
         total_correct_predictions: correctVotes.length,
         unique_voters: votersArray.length,
         voters: votersArray,
@@ -869,4 +878,178 @@ export async function getNomineeStatistics() {
     console.error("Error getting nominee statistics:", err);
     return [];
   }
+}
+
+// =============================================
+// COMMENTS API - Bình luận cho đề cử
+// =============================================
+
+// Cache comments theo nominee
+let commentsCache = {};
+
+/**
+ * Lấy danh sách comments cho một nominee
+ */
+export async function fetchCommentsForNominee(nomineeId) {
+  if (!supabase) {
+    // Demo mode - return from localStorage
+    const stored = localStorage.getItem(`comments_${nomineeId}`);
+    return stored ? JSON.parse(stored) : [];
+  }
+
+  // Return cache if available
+  if (commentsCache[nomineeId]) {
+    return commentsCache[nomineeId];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("comments")
+      .select("*")
+      .eq("nominee_id", nomineeId)
+      .eq("is_visible", true)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching comments:", error);
+      return [];
+    }
+
+    commentsCache[nomineeId] = data || [];
+    return commentsCache[nomineeId];
+  } catch (err) {
+    console.error("Error fetching comments:", err);
+    return [];
+  }
+}
+
+/**
+ * Lấy tất cả comments cho nhiều nominees cùng lúc
+ */
+export async function fetchAllComments() {
+  if (!supabase) {
+    // Demo mode
+    return [];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("comments")
+      .select("*")
+      .eq("is_visible", true)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching all comments:", error);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.error("Error fetching all comments:", err);
+    return [];
+  }
+}
+
+/**
+ * Thêm comment mới
+ * @param {boolean} isAnonymous - Nếu true, comment sẽ được hiển thị ẩn danh
+ */
+export async function addComment(nomineeId, commenterEmail, commenterName, commenterAvatar, content, isAnonymous = false) {
+  if (!supabase) {
+    // Demo mode - save to localStorage
+    const stored = localStorage.getItem(`comments_${nomineeId}`);
+    const comments = stored ? JSON.parse(stored) : [];
+    const newComment = {
+      id: `demo_${Date.now()}`,
+      nominee_id: nomineeId,
+      commenter_email: commenterEmail,
+      commenter_name: commenterName,
+      commenter_avatar: commenterAvatar,
+      content: content,
+      is_anonymous: isAnonymous,
+      is_visible: true,
+      created_at: new Date().toISOString(),
+    };
+    comments.unshift(newComment);
+    localStorage.setItem(`comments_${nomineeId}`, JSON.stringify(comments));
+    return newComment;
+  }
+
+  try {
+    // Tìm commenter_id từ email (nếu có trong bảng users)
+    let commenterId = null;
+    const { data: user } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", commenterEmail)
+      .single();
+    
+    if (user) {
+      commenterId = user.id;
+    }
+
+    const { data, error } = await supabase
+      .from("comments")
+      .insert({
+        nominee_id: nomineeId,
+        commenter_id: commenterId,
+        commenter_email: commenterEmail,
+        commenter_name: commenterName,
+        commenter_avatar: commenterAvatar,
+        content: content,
+        is_anonymous: isAnonymous,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to add comment: ${error.message}`);
+    }
+
+    // Clear cache for this nominee
+    delete commentsCache[nomineeId];
+
+    return data;
+  } catch (err) {
+    console.error("Error adding comment:", err);
+    throw err;
+  }
+}
+
+/**
+ * Xóa comment (chỉ owner hoặc admin)
+ */
+export async function deleteComment(commentId, commenterEmail) {
+  if (!supabase) {
+    // Demo mode
+    return true;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("comments")
+      .delete()
+      .eq("id", commentId)
+      .eq("commenter_email", commenterEmail);
+
+    if (error) {
+      throw new Error(`Failed to delete comment: ${error.message}`);
+    }
+
+    // Clear all cache
+    commentsCache = {};
+
+    return true;
+  } catch (err) {
+    console.error("Error deleting comment:", err);
+    throw err;
+  }
+}
+
+/**
+ * Clear comments cache
+ */
+export function clearCommentsCache() {
+  commentsCache = {};
 }

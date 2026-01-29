@@ -2,10 +2,14 @@ import { useState, useEffect } from "react";
 import { useVote } from "../context/VoteContext";
 import { useAuth } from "../context/AuthContext";
 
-export default function NomineeCard({ nominee, categoryId, showVotes = false }) {
-  const { selections, selectNominee, isVotingOpen, getUserVoteCountForNominee } = useVote();
+export default function NomineeCard({ nominee, categoryId, categoryName, showVotes = false, onSelect }) {
+  const { selections, isVotingOpen, getUserVoteCountForNominee } = useVote();
   const { canVote, user } = useAuth();
-  const isSelected = selections[categoryId] === nominee.id;
+  
+  // Get selection data for this category
+  const selection = selections[categoryId];
+  const isSelected = selection?.nomineeId === nominee.id;
+  
   const [showParticles, setShowParticles] = useState(false);
   const [justSelected, setJustSelected] = useState(false);
 
@@ -41,7 +45,10 @@ export default function NomineeCard({ nominee, categoryId, showVotes = false }) 
       audio.play().catch((err) => console.log("Audio play failed:", err));
     }
 
-    selectNominee(categoryId, nominee.id);
+    // Gọi callback để mở modal
+    if (onSelect) {
+      onSelect(nominee, categoryId, categoryName);
+    }
   };
 
   // Lấy chữ cái cuối cùng của tên (VD: "Nguyễn Văn Bình" -> "B")
@@ -149,6 +156,14 @@ export default function NomineeCard({ nominee, categoryId, showVotes = false }) 
           <div className="nominee-vote-label">votes</div>
         </div>
       )}
+      
+      {/* Show predicted count badge when selected */}
+      {isSelected && selection?.predictedCount > 0 && (
+        <div className="predicted-count-badge-card">
+          👥 {selection.predictedCount}
+        </div>
+      )}
+      
       <div className={`check-icon ${isSelected ? "is-selected" : ""} ${myVoteCount > 0 ? "has-vote-count" : ""}`} title={myVoteCount > 0 ? `Bạn đã dự đoán ${myVoteCount} lần cho đề cử này` : ""}>
         {isSelected ? (myVoteCount > 0 ? myVoteCount + 1 : "✓") : myVoteCount > 0 ? myVoteCount : ""}
       </div>
