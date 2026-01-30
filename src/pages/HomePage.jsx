@@ -65,7 +65,7 @@ function QRDonateModal({ isOpen, onClose, user }) {
   if (!isOpen) return null;
 
   const username = user?.email?.split("@")[0] || "Anonymous";
-  const transferContent = `${username} Tai tro YEB 2025`;
+  const transferContent = `${username} YEB 2025`;
   const qrUrl = `https://img.vietqr.io/image/${BANK_CONFIG.BANK_ID}-${BANK_CONFIG.ACCOUNT_NO}-compact2.jpg?amount=0&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(BANK_CONFIG.ACCOUNT_NAME)}`;
 
   const handleCopyAccount = () => {
@@ -389,11 +389,7 @@ export default function HomePage() {
 
   // Handle like change from modal - update nominees array
   const handleLikeChange = (nomineeId) => {
-    setNominees((prev) =>
-      prev.map((n) =>
-        n.id === nomineeId ? { ...n, like_count: (n.like_count || 0) + 1 } : n
-      )
-    );
+    setNominees((prev) => prev.map((n) => (n.id === nomineeId ? { ...n, like_count: (n.like_count || 0) + 1 } : n)));
   };
 
   if (loading) {
@@ -420,7 +416,7 @@ export default function HomePage() {
                 <p className="yeb-subtitle">Tổng tiền tài trợ cho YEB</p>
                 <div className="yeb-amount">{yebLoading ? <span className="yeb-loading">Đang tải...</span> : <span className="yeb-value">{formatCurrency(yebTotal)}</span>}</div>
                 <div className="yeb-donate-cta">
-                  <button className="yeb-donate-btn" onClick={() => user ? setIsQRModalOpen(true) : signInWithGoogle()}>
+                  <button className="yeb-donate-btn" onClick={() => (user ? setIsQRModalOpen(true) : signInWithGoogle())}>
                     <span>❤️</span> {user ? "Tài trợ ngay" : "Đăng nhập để tài trợ"}
                   </button>
                 </div>
