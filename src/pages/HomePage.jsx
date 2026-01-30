@@ -420,8 +420,8 @@ export default function HomePage() {
                 <p className="yeb-subtitle">Tổng tiền tài trợ cho YEB</p>
                 <div className="yeb-amount">{yebLoading ? <span className="yeb-loading">Đang tải...</span> : <span className="yeb-value">{formatCurrency(yebTotal)}</span>}</div>
                 <div className="yeb-donate-cta">
-                  <button className="yeb-donate-btn" onClick={() => setIsQRModalOpen(true)}>
-                    <span>❤️</span> Tài trợ ngay
+                  <button className="yeb-donate-btn" onClick={() => user ? setIsQRModalOpen(true) : signInWithGoogle()}>
+                    <span>❤️</span> {user ? "Tài trợ ngay" : "Đăng nhập để tài trợ"}
                   </button>
                 </div>
               </div>
