@@ -2986,3 +2986,592 @@ html {
   height: 100%;
   object-fit: cover;
 }
+
+/* =============================================
+   NOMINEE CARD CLICKABLE STYLES
+   ============================================= */
+
+.nominee-card-clickable {
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.nominee-card-clickable:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 30px rgba(251, 191, 36, 0.2);
+}
+
+.nominee-card-clickable:focus {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+}
+
+.nominee-card-footer {
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--bg-card);
+  border-top: 1px solid var(--glass-border);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.nominee-card-comments-badge {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.nominee-card-click-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  transition: all var(--transition-fast);
+}
+
+.nominee-card-clickable:hover .nominee-card-click-hint {
+  color: var(--gold);
+}
+
+/* Comments Preview in Card */
+.nominee-card-comments-preview {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-md);
+  background: var(--bg-card);
+  border-top: 1px solid var(--glass-border);
+}
+
+/* =============================================
+   NOMINEE DETAIL MODAL STYLES
+   ============================================= */
+
+.nominee-detail-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--spacing-lg);
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.nominee-detail-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-2xl);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  animation: slideUp 0.3s ease-out;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* Split layout - 2 columns */
+.nominee-detail-modal-split {
+  max-width: 900px;
+  flex-direction: row;
+  max-height: 85vh;
+}
+
+/* Left side - Comments */
+.nominee-detail-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--glass-border);
+  overflow: hidden;
+}
+
+/* Right side - Nominee Info */
+.nominee-detail-right {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.1) 0%, transparent 100%);
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.nominee-detail-modal-close {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  z-index: 10;
+}
+
+.nominee-detail-modal-close:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  transform: rotate(90deg);
+}
+
+/* Modal Header - Right side */
+.nominee-detail-modal-split .nominee-detail-header {
+  padding: var(--spacing-2xl) var(--spacing-lg);
+  text-align: center;
+  background: transparent;
+  border-bottom: none;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.nominee-detail-header {
+  padding: var(--spacing-2xl);
+  text-align: center;
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.15) 0%, transparent 100%);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.nominee-detail-avatar-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-bottom: var(--spacing-md);
+}
+
+.nominee-detail-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid var(--gold);
+  box-shadow: 0 0 30px rgba(251, 191, 36, 0.4);
+}
+
+.nominee-detail-role-badge {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 14px;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.nominee-detail-info {
+  margin-top: var(--spacing-sm);
+}
+
+.nominee-detail-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+}
+
+.nominee-detail-username {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.nominee-detail-description {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: var(--spacing-md) 0 0 0;
+  line-height: 1.5;
+}
+
+/* Stats section for split layout */
+.nominee-detail-stats {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-xl);
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--glass-border);
+}
+
+.nominee-detail-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.nominee-detail-stat .stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.nominee-detail-stat .stat-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Comments Section - Left side */
+.nominee-detail-modal-split .nominee-detail-comments {
+  height: 100%;
+  padding: var(--spacing-lg);
+}
+
+/* Comments Section */
+.nominee-detail-comments {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: var(--spacing-lg);
+}
+
+.nominee-detail-comments-header {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.nominee-detail-comments-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 150px;
+  max-height: 300px;
+  margin-bottom: var(--spacing-md);
+  padding-right: var(--spacing-sm);
+}
+
+.nominee-detail-modal-split .nominee-detail-comments-list {
+  max-height: none;
+  flex: 1;
+}
+
+.nominee-detail-comments-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.nominee-detail-comments-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nominee-detail-comments-list::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 3px;
+}
+
+.nominee-detail-comments-list::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* No Comments */
+.nominee-detail-no-comments {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--spacing-xl);
+}
+
+.no-comments-icon {
+  font-size: 3rem;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.5;
+}
+
+.nominee-detail-no-comments p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.no-comments-hint {
+  color: var(--gold);
+  margin-top: var(--spacing-xs) !important;
+}
+
+/* Comment Item */
+.nominee-detail-comment-item {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--glass);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-sm);
+  transition: background var(--transition-fast);
+}
+
+.nominee-detail-comment-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nominee-detail-comment-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.nominee-detail-comment-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.nominee-detail-comment-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: 4px;
+}
+
+.nominee-detail-comment-author {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.nominee-detail-comment-author.anonymous {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.nominee-detail-comment-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.nominee-detail-comment-text {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+  word-break: break-word;
+}
+
+/* Comment Form */
+.nominee-detail-comment-form-wrapper {
+  border-top: 1px solid var(--glass-border);
+  padding-top: var(--spacing-md);
+}
+
+.nominee-detail-comment-form {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: flex-start;
+}
+
+.nominee-detail-form-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.nominee-detail-input-wrapper {
+  flex: 1;
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.nominee-detail-comment-input {
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.nominee-detail-comment-input::placeholder {
+  color: var(--text-muted);
+}
+
+.nominee-detail-comment-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.nominee-detail-comment-btn {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: var(--radius-lg);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.nominee-detail-comment-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(251, 191, 36, 0.4);
+}
+
+.nominee-detail-comment-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-loading {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Anonymous Checkbox */
+.nominee-detail-anonymous-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  margin-top: var(--spacing-sm);
+  margin-left: calc(40px + var(--spacing-md));
+}
+
+.nominee-detail-anonymous-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.nominee-detail-anonymous-checkbox:hover {
+  color: var(--text-secondary);
+}
+
+/* Login Prompt */
+.nominee-detail-login-prompt {
+  text-align: center;
+  padding: var(--spacing-md);
+  color: var(--text-muted);
+  background: var(--glass);
+  border-radius: var(--radius-lg);
+  border-top: 1px solid var(--glass-border);
+}
+
+/* Responsive for Modal */
+@media (max-width: 900px) {
+  .nominee-detail-modal-split {
+    flex-direction: column-reverse;
+    max-width: 600px;
+  }
+
+  .nominee-detail-left {
+    border-right: none;
+    border-top: 1px solid var(--glass-border);
+  }
+
+  .nominee-detail-right {
+    width: 100%;
+  }
+
+  .nominee-detail-modal-split .nominee-detail-header {
+    padding: var(--spacing-lg);
+  }
+
+  .nominee-detail-modal-split .nominee-detail-comments-list {
+    max-height: 250px;
+  }
+}
+
+@media (max-width: 640px) {
+  .nominee-detail-modal-overlay {
+    padding: var(--spacing-sm);
+    align-items: flex-end;
+  }
+
+  .nominee-detail-modal {
+    max-height: 95vh;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  }
+
+  .nominee-detail-modal-split {
+    max-height: 95vh;
+  }
+
+  .nominee-detail-header {
+    padding: var(--spacing-lg);
+  }
+
+  .nominee-detail-avatar {
+    width: 90px;
+    height: 90px;
+  }
+
+  .nominee-detail-name {
+    font-size: 1.25rem;
+  }
+
+  .nominee-detail-comments-list {
+    max-height: 200px;
+  }
+
+  .nominee-detail-modal-split .nominee-detail-comments-list {
+    max-height: 180px;
+  }
+
+  .nominee-detail-comment-form {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .nominee-detail-form-avatar {
+    display: none;
+  }
+
+  .nominee-detail-anonymous-checkbox {
+    margin-left: 0;
+  }
+
+  .nominee-detail-stats {
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
+  }
+}

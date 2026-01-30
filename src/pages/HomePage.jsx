@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { fetchNominees, addComment, fetchAllComments } from "../lib/supabase";
+import NomineeDetailModal from "../components/NomineeDetailModal";
 
 // Role badge colors
 const roleBadgeColors = {
@@ -11,32 +12,20 @@ const roleBadgeColors = {
   PROJECT: { bg: "#f59e0b", label: "Dự án" },
 };
 
-// NomineeCard Component - Card với comment tích hợp
-function NomineeCard({ nominee, comments, onAddComment, user }) {
-  const [newComment, setNewComment] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAnonymous, setIsAnonymous] = useState(false);
-
-  const handleSubmitComment = async (e) => {
-    e.preventDefault();
-    if (!newComment.trim() || !user) return;
-
-    setIsSubmitting(true);
-    try {
-      await onAddComment(nominee.id, newComment.trim(), isAnonymous);
-      setNewComment("");
-      setIsAnonymous(false);
-    } catch (error) {
-      console.error("Error submitting comment:", error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+// NomineeCard Component - Card với 3 bình luận, click để mở modal
+function NomineeCard({ nominee, comments, onClick }) {
   const roleInfo = roleBadgeColors[nominee.role] || { bg: "#6b7280", label: nominee.role };
+  const previewComments = comments.slice(0, 3); // Lấy 3 bình luận đầu tiên
 
   return (
-    <div className="nominee-card-v2" id={`nominee-${nominee.id}`}>
+    <div 
+      className="nominee-card-v2 nominee-card-clickable" 
+      id={`nominee-${nominee.id}`}
+      onClick={() => onClick(nominee)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && onClick(nominee)}
+    >
       {/* Avatar & Info */}
       <div className="nominee-card-header">
         <div className="nominee-card-avatar-wrapper">
@@ -59,20 +48,19 @@ function NomineeCard({ nominee, comments, onAddComment, user }) {
         </div>
       </div>
 
-      {/* Comments Section */}
-      <div className="nominee-card-comments">
+      {/* Preview Comments - 3 bình luận đầu */}
+      <div className="nominee-card-comments-preview">
         <div className="comments-header-compact">
           <span>💬 Bình luận ({comments.length})</span>
         </div>
-
-        {/* Comments List - Max 3 visible, scrollable */}
+        
         <div className="comments-list-compact">
-          {comments.length === 0 ? (
+          {previewComments.length === 0 ? (
             <div className="no-comments-compact">
-              <p>Hãy là người đầu tiên gửi bình luận! 🎉</p>
+              <p>Chưa có bình luận nào</p>
             </div>
           ) : (
-            comments.map((comment) => (
+            previewComments.map((comment) => (
               <div key={comment.id} className="comment-item-compact">
                 <img
                   src={comment.is_anonymous 
@@ -91,42 +79,13 @@ function NomineeCard({ nominee, comments, onAddComment, user }) {
             ))
           )}
         </div>
+      </div>
 
-        {/* Comment Input */}
-        {user ? (
-          <div className="comment-form-wrapper">
-            <form onSubmit={handleSubmitComment} className="comment-form-compact">
-              <input
-                type="text"
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Gửi bình luận..."
-                className="comment-input-compact"
-                disabled={isSubmitting}
-              />
-              <button
-                type="submit"
-                className="comment-btn-compact"
-                disabled={!newComment.trim() || isSubmitting}
-              >
-                {isSubmitting ? "..." : "Gửi"}
-              </button>
-            </form>
-            <label className="anonymous-checkbox">
-              <input
-                type="checkbox"
-                checked={isAnonymous}
-                onChange={(e) => setIsAnonymous(e.target.checked)}
-                style={{ borderRadius: '50%' }}
-              />
-              <span>🎭 Gửi ẩn danh</span>
-            </label>
-          </div>
-        ) : (
-          <div className="comment-login-compact">
-            <span>Đăng nhập để gửi bình luận</span>
-          </div>
-        )}
+      {/* Footer with click hint */}
+      <div className="nominee-card-footer">
+        <div className="nominee-card-click-hint">
+          Nhấn để xem chi tiết & bình luận →
+        </div>
       </div>
     </div>
   );
@@ -179,6 +138,10 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef(null);
+  
+  // Modal state
+  const [selectedNominee, setSelectedNominee] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetch nominees and comments
   useEffect(() => {
@@ -236,6 +199,18 @@ export default function HomePage() {
       ...prev,
       [nomineeId]: [newComment, ...(prev[nomineeId] || [])],
     }));
+  };
+
+  // Handle open modal
+  const handleOpenModal = (nominee) => {
+    setSelectedNominee(nominee);
+    setIsModalOpen(true);
+  };
+
+  // Handle close modal
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedNominee(null);
   };
 
   if (loading) {
@@ -299,8 +274,7 @@ export default function HomePage() {
                     key={nominee.id}
                     nominee={nominee}
                     comments={comments[nominee.id] || []}
-                    onAddComment={handleAddComment}
-                    user={user}
+                    onClick={handleOpenModal}
                   />
                 ))}
               </div>
@@ -334,6 +308,16 @@ export default function HomePage() {
           )}
         </div>
       </section>
+
+      {/* Nominee Detail Modal */}
+      <NomineeDetailModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        nominee={selectedNominee}
+        comments={selectedNominee ? (comments[selectedNominee.id] || []) : []}
+        onAddComment={handleAddComment}
+        user={user}
+      />
     </main>
   );
 }
