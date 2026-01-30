@@ -65,7 +65,7 @@ function QRDonateModal({ isOpen, onClose, user }) {
   if (!isOpen) return null;
 
   const username = user?.email?.split("@")[0] || "Anonymous";
-  const transferContent = `${username} YEB 2025`;
+  const transferContent = `${username} Tai tro YEP 2025`;
   const qrUrl = `https://img.vietqr.io/image/${BANK_CONFIG.BANK_ID}-${BANK_CONFIG.ACCOUNT_NO}-compact2.jpg?amount=0&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(BANK_CONFIG.ACCOUNT_NAME)}`;
 
   const handleCopyAccount = () => {
@@ -79,7 +79,7 @@ function QRDonateModal({ isOpen, onClose, user }) {
         <button className="modal-close-btn" onClick={onClose}>
           ×
         </button>
-        <h2 className="qr-modal-title">🎊 Tài trợ YEB B2B 2025</h2>
+        <h2 className="qr-modal-title">🎊 Tài trợ YEP B2B 2025</h2>
 
         <div className="qr-code-container">
           <img src={qrUrl} alt="QR Code chuyển khoản" className="qr-code-image" />
@@ -412,8 +412,8 @@ export default function HomePage() {
             <div className="yeb-content">
               <img src="/than_tai.png" alt="Thần Tài" className="yeb-thantai-img" />
               <div className="yeb-info">
-                <h3 className="yeb-title">🎊 YEB B2B 2025</h3>
-                <p className="yeb-subtitle">Tổng tiền tài trợ cho YEB</p>
+                <h3 className="yeb-title">🎊 YEP B2B 2025</h3>
+                <p className="yeb-subtitle">Tổng tiền tài trợ cho YEP</p>
                 <div className="yeb-amount">{yebLoading ? <span className="yeb-loading">Đang tải...</span> : <span className="yeb-value">{formatCurrency(yebTotal)}</span>}</div>
                 <div className="yeb-donate-cta">
                   <button className="yeb-donate-btn" onClick={() => (user ? setIsQRModalOpen(true) : signInWithGoogle())}>
