@@ -16,55 +16,11 @@
 
 <body>
   <div id="root"></div>
-  <div id="devtools-blocker" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background-color:#1a1a2e;z-index:999999;align-items:center;justify-content:center;flex-direction:column;font-family:system-ui,-apple-system,sans-serif;">
-    <div style="text-align:center;padding:40px;border-radius:16px;background-color:#16213e;box-shadow:0 8px 32px rgba(0,0,0,0.3);max-width:500px;">
-      <div style="font-size:64px;margin-bottom:20px;">🔒</div>
-      <h1 style="font-size:24px;font-weight:bold;margin-bottom:16px;color:#e94560;">DevTools Detected</h1>
-      <p style="font-size:16px;color:#a0a0a0;margin-bottom:24px;line-height:1.6;">Developer tools have been detected. Please close DevTools and reload the page to continue.</p>
-      <button onclick="window.location.reload()" style="padding:12px 32px;font-size:16px;font-weight:bold;color:#fff;background-color:#e94560;border:none;border-radius:8px;cursor:pointer;">Reload Page</button>
-    </div>
-  </div>
   
   <script>
-    // Early DevTools detection - runs BEFORE React loads
+    // Block keyboard shortcuts and right-click
     (function() {
       window.__DEVTOOLS_OPEN__ = false;
-      
-      function checkDevTools() {
-        var threshold = 160;
-        var widthThreshold = window.outerWidth - window.innerWidth > threshold;
-        var heightThreshold = window.outerHeight - window.innerHeight > threshold;
-        
-        // Console detection using Image trick
-        var consoleOpen = false;
-        var element = new Image();
-        Object.defineProperty(element, 'id', {
-          get: function() {
-            consoleOpen = true;
-            return '';
-          }
-        });
-        console.log('%c', element);
-        console.clear();
-        
-        return widthThreshold || heightThreshold || consoleOpen;
-      }
-      
-      function blockDevTools() {
-        var isOpen = checkDevTools();
-        window.__DEVTOOLS_OPEN__ = isOpen;
-        
-        var blocker = document.getElementById('devtools-blocker');
-        var root = document.getElementById('root');
-        
-        if (isOpen) {
-          blocker.style.display = 'flex';
-          root.style.display = 'none';
-        } else {
-          blocker.style.display = 'none';
-          root.style.display = 'block';
-        }
-      }
       
       // Block keyboard shortcuts
       document.addEventListener('keydown', function(e) {
@@ -81,15 +37,6 @@
         e.preventDefault();
         return false;
       });
-      
-      // Check immediately
-      blockDevTools();
-      
-      // Check periodically
-      setInterval(blockDevTools, 500);
-      
-      // Check on resize
-      window.addEventListener('resize', blockDevTools);
     })();
   </script>
   
