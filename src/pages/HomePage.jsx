@@ -530,7 +530,16 @@ export default function HomePage() {
               <div className="yeb-info">
                 <h3 className="yeb-title">🎊 YEP B2B 2025</h3>
                 <p className="yeb-subtitle">Tổng tiền tài trợ cho YEP</p>
-                <div className="yeb-amount">{yebLoading ? <span className="yeb-loading">Đang tải...</span> : <span className="yeb-value">{formatCurrency(yebTotal)}</span>}</div>
+                <div
+                  className="yeb-amount"
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => window.open("https://docs.google.com/spreadsheets/d/17p0Wg81ZQ4mFvmArnAugY_q1U8w6dOG-Pt__pYeUC38/edit?gid=88569587", "_blank", "noopener,noreferrer")}
+                  onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && window.open("https://docs.google.com/spreadsheets/d/17p0Wg81ZQ4mFvmArnAugY_q1U8w6dOG-Pt__pYeUC38/edit?gid=88569587", "_blank", "noopener,noreferrer")}
+                  title="Xem chi tiết tài trợ"
+                >
+                  {yebLoading ? <span className="yeb-loading">Đang tải...</span> : <span className="yeb-value">{formatCurrency(yebTotal)}</span>}
+                </div>
                 <div className="yeb-donate-cta">
                   <button className="yeb-donate-btn" onClick={() => setIsQRModalOpen(true)}>
                     <span>❤️</span> Tài trợ ngay
