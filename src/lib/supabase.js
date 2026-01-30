@@ -1225,12 +1225,12 @@ export function clearCommentsCache() {
  * @param {string} nomineeId - UUID of the nominee to like
  * @returns {number} - New like count
  */
-export async function likeNominee(nomineeId) {
+export async function likeNominee(nomineeId, count = 1) {
   if (!supabase) {
     // Demo mode - save to localStorage
     const key = `like_count_${nomineeId}`;
     const current = parseInt(localStorage.getItem(key) || "0");
-    const newCount = current + 1;
+    const newCount = current + count;
     localStorage.setItem(key, newCount.toString());
     return newCount;
   }
@@ -1239,31 +1239,28 @@ export async function likeNominee(nomineeId) {
     // Call the database function to increment like_count
     const { data, error } = await supabase.rpc("increment_like_count", {
       user_id: nomineeId,
+      increment_by: count,
     });
 
     if (error) {
-      // If function doesn't exist, try direct update
+      // If function doesn't exist, try direct update with count
+      const { data: currentUser } = await supabase.from("users").select("like_count").eq("id", nomineeId).single();
+
+      const newCount = (currentUser?.like_count || 0) + count;
       const { data: userData, error: updateError } = await supabase
         .from("users")
-        .update({ like_count: supabase.raw("COALESCE(like_count, 0) + 1") })
+        .update({ like_count: newCount })
         .eq("id", nomineeId)
         .select("like_count")
         .single();
 
       if (updateError) {
-        // Fallback: fetch current count and increment
-        const { data: currentUser } = await supabase.from("users").select("like_count").eq("id", nomineeId).single();
-
-        const newCount = (currentUser?.like_count || 0) + 1;
-        await supabase.from("users").update({ like_count: newCount }).eq("id", nomineeId);
-
-        // Clear nominees cache
-        clearNomineesCache();
-        return newCount;
+        console.error("Error updating like count:", updateError);
+        throw updateError;
       }
 
       clearNomineesCache();
-      return userData?.like_count || 0;
+      return userData?.like_count || newCount;
     }
 
     // Clear nominees cache to get fresh data

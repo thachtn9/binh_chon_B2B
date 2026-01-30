@@ -15,38 +15,50 @@ const getCommentPlaceholders = (name) => [
   `Chia sẻ cảm nhận của bạn về ${name}...`,
 ];
 
-// Debounce hook for like button
+// Debounce hook for like button - flushes pending likes on unmount
 function useDebounce(callback, delay) {
   const timeoutRef = useRef(null);
   const pendingCountRef = useRef(0);
+  const callbackRef = useRef(callback);
 
-  const debouncedCallback = useCallback(
-    (...args) => {
-      pendingCountRef.current += 1;
-
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-
-      timeoutRef.current = setTimeout(async () => {
-        const count = pendingCountRef.current;
-        pendingCountRef.current = 0;
-        await callback(count, ...args);
-      }, delay);
-    },
-    [callback, delay]
-  );
-
-  // Cleanup on unmount
+  // Keep callback ref updated to avoid stale closures
   useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
+    callbackRef.current = callback;
+  }, [callback]);
+
+  // Flush function - immediately execute pending callback
+  const flush = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    if (pendingCountRef.current > 0) {
+      const count = pendingCountRef.current;
+      pendingCountRef.current = 0;
+      callbackRef.current(count);
+    }
   }, []);
 
-  return [debouncedCallback, pendingCountRef];
+  const debouncedCallback = useCallback(() => {
+    pendingCountRef.current += 1;
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      flush();
+    }, delay);
+  }, [delay, flush]);
+
+  // Flush on unmount to save pending likes before cleanup
+  useEffect(() => {
+    return () => {
+      flush();
+    };
+  }, [flush]);
+
+  return [debouncedCallback, pendingCountRef, flush];
 }
 
 // Role badge colors
@@ -137,17 +149,15 @@ export default function NomineeDetailModal({ isOpen, onClose, nominee, comments 
     }
   };
 
-  // Debounced like action - accumulates clicks and sends to DB after delay
+  // Debounced like action - accumulates clicks and sends to DB after 500ms of no clicking
   const submitLikes = useCallback(
     async (clickCount) => {
-      if (!nominee?.id) return;
+      if (!nominee?.id || clickCount <= 0) return;
 
       setIsLiking(true);
       try {
-        // Call API once with accumulated count
-        for (let i = 0; i < clickCount; i++) {
-          await likeNominee(nominee.id);
-        }
+        // Single API call with total accumulated count
+        await likeNominee(nominee.id, clickCount);
       } catch (error) {
         console.error("Error liking nominee:", error);
       } finally {
@@ -159,40 +169,65 @@ export default function NomineeDetailModal({ isOpen, onClose, nominee, comments 
 
   const [debouncedLike] = useDebounce(submitLikes, 300);
 
-  // Create flying hearts effect
-  const createFlyingHearts = () => {
+  // Throttle ref for flying hearts animation
+  const lastHeartAnimationRef = useRef(0);
+  const maxFlyingHeartsRef = useRef(30); // Limit total flying hearts
+
+  // Create flying hearts effect - throttled to reduce lag
+  const createFlyingHearts = useCallback(() => {
+    const now = Date.now();
+    // Throttle: only create new hearts every 80ms
+    if (now - lastHeartAnimationRef.current < 80) return;
+    lastHeartAnimationRef.current = now;
+
+    // Don't create more hearts if we already have too many
+    if (flyingHearts.length >= maxFlyingHeartsRef.current) return;
+
     const heartEmojis = ["❤️", "💕", "💖", "💗", "💓", "💞"];
     const newHearts = [];
-    const numHearts = 5 + Math.floor(Math.random() * 4); // 5-8 hearts
+    const numHearts = 4 + Math.floor(Math.random() * 3); // 4-6 hearts
 
     for (let i = 0; i < numHearts; i++) {
       heartIdRef.current += 1;
       newHearts.push({
         id: heartIdRef.current,
         emoji: heartEmojis[Math.floor(Math.random() * heartEmojis.length)],
-        left: 30 + Math.random() * 40, // 30-70% from left
-        animationDuration: 1 + Math.random() * 0.5, // 1-1.5s
-        delay: Math.random() * 0.2, // 0-0.2s delay
-        size: 0.8 + Math.random() * 0.6, // 0.8-1.4 scale
+        left: 30 + Math.random() * 40,
+        animationDuration: 0.8 + Math.random() * 0.4, // Faster: 0.8-1.2s
+        delay: 0,
+        size: 1.2 + Math.random() * 0.4,
       });
     }
 
-    setFlyingHearts((prev) => [...prev, ...newHearts]);
+    setFlyingHearts((prev) => {
+      const combined = [...prev, ...newHearts];
+      // Keep only the most recent hearts if too many
+      return combined.slice(-maxFlyingHeartsRef.current);
+    });
 
-    // Remove hearts after animation completes
+    // Remove hearts after animation - use Set for O(1) lookup
+    const newHeartIds = new Set(newHearts.map((h) => h.id));
     setTimeout(() => {
-      setFlyingHearts((prev) => prev.filter((h) => !newHearts.find((nh) => nh.id === h.id)));
-    }, 2000);
-  };
+      setFlyingHearts((prev) => prev.filter((h) => !newHeartIds.has(h.id)));
+    }, 1500);
+  }, [flyingHearts.length]);
+
+  // Animation state ref to avoid multiple timeouts
+  const likeAnimationTimeoutRef = useRef(null);
 
   // Handle like action with debounce
-  const handleLike = () => {
+  const handleLike = useCallback(() => {
     // Immediately update UI
     setLikeCount((prev) => prev + 1);
-    setLikeAnimation(true);
-    setTimeout(() => setLikeAnimation(false), 300);
 
-    // Create flying hearts effect
+    // Debounce animation state to reduce re-renders
+    setLikeAnimation(true);
+    if (likeAnimationTimeoutRef.current) {
+      clearTimeout(likeAnimationTimeoutRef.current);
+    }
+    likeAnimationTimeoutRef.current = setTimeout(() => setLikeAnimation(false), 300);
+
+    // Create flying hearts effect (throttled internally)
     createFlyingHearts();
 
     // Notify parent to update nominee's like count
@@ -202,7 +237,7 @@ export default function NomineeDetailModal({ isOpen, onClose, nominee, comments 
 
     // Debounce the API call
     debouncedLike();
-  };
+  }, [createFlyingHearts, onLikeChange, nominee?.id, debouncedLike]);
 
   if (!isOpen || !nominee) return null;
 

@@ -3889,7 +3889,7 @@ html {
   display: inline-block;
 }
 
-/* Flying hearts container */
+/* Flying hearts container - GPU optimized */
 .flying-hearts-container {
   position: absolute;
   top: 0;
@@ -3898,40 +3898,43 @@ html {
   height: 100%;
   pointer-events: none;
   overflow: visible;
+  contain: layout style;
 }
 
-/* Flying heart animation */
+/* Flying heart animation - GPU accelerated */
 .flying-heart {
   position: absolute;
   bottom: 100%;
-  transform: translateX(-50%);
-  animation: flyHeart 1.5s ease-out forwards;
+  transform: translate3d(-50%, 0, 0);
+  animation: flyHeart 1s ease-out forwards;
   opacity: 0;
   pointer-events: none;
   z-index: 100;
   text-shadow: 0 0 10px rgba(255, 100, 100, 0.5);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 @keyframes flyHeart {
   0% {
     opacity: 1;
-    transform: translateX(-50%) translateY(0) scale(0.5) rotate(0deg);
+    transform: translate3d(-50%, 0, 0) scale(0.5) rotate(0deg);
   }
   20% {
     opacity: 1;
-    transform: translateX(-50%) translateY(-30px) scale(1) rotate(-10deg);
+    transform: translate3d(-50%, -30px, 0) scale(1) rotate(-10deg);
   }
   50% {
     opacity: 1;
-    transform: translateX(calc(-50% + 15px)) translateY(-80px) scale(1.1) rotate(10deg);
+    transform: translate3d(calc(-50% + 15px), -80px, 0) scale(1.1) rotate(10deg);
   }
   80% {
     opacity: 0.6;
-    transform: translateX(calc(-50% - 10px)) translateY(-130px) scale(0.9) rotate(-5deg);
+    transform: translate3d(calc(-50% - 10px), -130px, 0) scale(0.9) rotate(-5deg);
   }
   100% {
     opacity: 0;
-    transform: translateX(-50%) translateY(-180px) scale(0.6) rotate(15deg);
+    transform: translate3d(-50%, -180px, 0) scale(0.6) rotate(15deg);
   }
 }
 
