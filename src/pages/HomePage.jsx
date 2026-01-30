@@ -223,6 +223,11 @@ export default function HomePage() {
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef(null);
 
+  // Search state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const searchInputRef = useRef(null);
+
   // Modal state
   const [selectedNominee, setSelectedNominee] = useState(null);
   const [modalComments, setModalComments] = useState([]);
@@ -238,6 +243,58 @@ export default function HomePage() {
 
   // Lazy load intersection observer
   const { visibleItems, observe } = useIntersectionObserver();
+
+  // Filter nominees based on search term
+  const filteredNominees = nominees.filter((nominee) => {
+    if (!searchTerm.trim()) return true;
+    const search = searchTerm.toLowerCase();
+    const fullName = (nominee.full_name || "").toLowerCase();
+    const userName = (nominee.user_name || "").toLowerCase();
+    return fullName.includes(search) || userName.includes(search);
+  });
+
+  // Handle keyboard search - press any key to start searching
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ignore if modal is open, or if user is in an input/textarea
+      if (isModalOpen || isQRModalOpen) return;
+      const target = e.target;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+
+      // Ignore special keys
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      if (["Escape", "Tab", "Enter", "Shift", "Control", "Alt", "Meta", "CapsLock"].includes(e.key)) {
+        if (e.key === "Escape" && isSearchVisible) {
+          setIsSearchVisible(false);
+          setSearchTerm("");
+        }
+        return;
+      }
+
+      // Show search and focus input
+      if (!isSearchVisible) {
+        setIsSearchVisible(true);
+      }
+      // Focus will be set by useEffect when isSearchVisible changes
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isModalOpen, isQRModalOpen, isSearchVisible]);
+
+  // Focus search input when it becomes visible
+  useEffect(() => {
+    if (isSearchVisible && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isSearchVisible]);
+
+  // Clear search when clicking outside
+  const handleSearchBlur = () => {
+    if (!searchTerm.trim()) {
+      setIsSearchVisible(false);
+    }
+  };
 
   // Fetch YEB sponsorship data
   useEffect(() => {
@@ -474,9 +531,38 @@ export default function HomePage() {
 
           <section className="nominees-section-v2">
             <div className="container">
-              <h2 className="nominees-section-title">👤 Danh sách profile ({nominees.length} người)</h2>
+              <h2 className="nominees-section-title">
+                👤 Danh sách profile ({nominees.length} người)
+                {!isSearchVisible && (
+                  <span className="search-keyboard-hint" onClick={() => setIsSearchVisible(true)}>
+                    ⌨️ Nhấn phím bất kỳ để tìm kiếm
+                  </span>
+                )}
+              </h2>
+
+              {/* Search Bar */}
+              <div className={`search-bar-container ${isSearchVisible ? "visible" : ""}`}>
+                <div className="search-bar">
+                  <span className="search-icon">🔍</span>
+                  <input ref={searchInputRef} type="text" className="search-input" placeholder="Tìm kiếm theo tên..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onBlur={handleSearchBlur} />
+                  {searchTerm && (
+                    <button
+                      className="search-clear-btn"
+                      onClick={() => {
+                        setSearchTerm("");
+                        searchInputRef.current?.focus();
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                  <span className="search-hint">Nhấn ESC để đóng</span>
+                </div>
+                {searchTerm && <div className="search-results-count">Tìm thấy {filteredNominees.length} kết quả</div>}
+              </div>
+
               <div className="nominees-grid-v2">
-                {nominees.map((nominee, index) => {
+                {filteredNominees.map((nominee, index) => {
                   const cardId = `nominee-card-${nominee.id}`;
                   const isVisible = visibleItems.has(cardId);
                   // Delay index dựa trên vị trí trong row (3 cards per row)
