@@ -3,13 +3,18 @@ import { useVote } from "../context/VoteContext";
 import { useAuth } from "../context/AuthContext";
 
 export default function NomineeCard({ nominee, categoryId, categoryName, showVotes = false, onSelect }) {
-  const { selections, isVotingOpen, getUserVoteCountForNominee } = useVote();
+  const { selections, isVotingOpen, getUserVoteCountForNominee, getUserExistingVoteForCategory } = useVote();
   const { canVote, user } = useAuth();
-  
+
   // Get selection data for this category
   const selection = selections[categoryId];
   const isSelected = selection?.nomineeId === nominee.id;
-  
+
+  // Kiểm tra xem category này đã được vote chưa (từ history)
+  const existingVote = getUserExistingVoteForCategory(categoryId);
+  const isCategoryVoted = !!existingVote;
+  const isThisNomineeVoted = existingVote?.nomineeId === nominee.id;
+
   const [showParticles, setShowParticles] = useState(false);
   const [justSelected, setJustSelected] = useState(false);
 
@@ -19,7 +24,8 @@ export default function NomineeCard({ nominee, categoryId, categoryName, showVot
   // Kiểm tra xem nominee có phải là chính mình không
   const isCurrentUser = user?.email?.toLowerCase() === nominee.email?.toLowerCase();
 
-  // Chỉ cho phép click nếu đã đăng nhập, có quyền bình chọn và voting đang mở
+  // Cho phép click nếu đã đăng nhập, có quyền bình chọn và voting đang mở
+  // (Cho phép chọn lại nếu đã vote - logic xử lý ở VotePage)
   const canClickToVote = user && canVote && isVotingOpen;
 
   // Track when selection changes to trigger animation
@@ -37,13 +43,6 @@ export default function NomineeCard({ nominee, categoryId, categoryName, showVot
 
   const handleClick = () => {
     if (!canClickToVote) return;
-
-    // Chỉ phát âm thanh khi chọn mới (chưa được chọn trước đó)
-    if (!isSelected) {
-      const audio = new Audio("/sound/check.mp3");
-      audio.volume = 0.4; // Điều chỉnh âm lượng (0.0 - 1.0)
-      audio.play().catch((err) => console.log("Audio play failed:", err));
-    }
 
     // Gọi callback để mở modal
     if (onSelect) {
@@ -96,7 +95,7 @@ export default function NomineeCard({ nominee, categoryId, categoryName, showVot
 
   return (
     <div
-      className={`nominee-card ${isSelected ? "selected" : ""} ${!canClickToVote ? "disabled" : ""} ${justSelected ? "just-selected" : ""} ${isCurrentUser ? "is-me" : ""}`}
+      className={`nominee-card ${isSelected ? "selected" : ""} ${isThisNomineeVoted ? "voted" : ""} ${isCategoryVoted && !isThisNomineeVoted ? "category-voted" : ""} ${!canClickToVote ? "disabled" : ""} ${justSelected ? "just-selected" : ""} ${isCurrentUser ? "is-me" : ""}`}
       onClick={handleClick}
       style={{
         cursor: canClickToVote ? "pointer" : "not-allowed",
@@ -156,16 +155,15 @@ export default function NomineeCard({ nominee, categoryId, categoryName, showVot
           <div className="nominee-vote-label">votes</div>
         </div>
       )}
-      
+
       {/* Show predicted count badge when selected */}
-      {isSelected && selection?.predictedCount > 0 && (
-        <div className="predicted-count-badge-card">
-          👥 {selection.predictedCount}
-        </div>
-      )}
-      
-      <div className={`check-icon ${isSelected ? "is-selected" : ""} ${myVoteCount > 0 ? "has-vote-count" : ""}`} title={myVoteCount > 0 ? `Bạn đã dự đoán ${myVoteCount} lần cho đề cử này` : ""}>
-        {isSelected ? (myVoteCount > 0 ? myVoteCount + 1 : "✓") : myVoteCount > 0 ? myVoteCount : ""}
+      {isSelected && selection?.predictedCount > 0 && <div className="predicted-count-badge-card">👥 {selection.predictedCount}</div>}
+
+      {/* Show badge for voted nominee from history */}
+      {isThisNomineeVoted && existingVote.predictedCount > 0 && <div className="predicted-count-badge-card voted-badge">👥 {existingVote.predictedCount}</div>}
+
+      <div className={`check-icon ${isSelected ? "is-selected" : ""} ${isThisNomineeVoted ? "is-voted" : ""} ${myVoteCount > 0 ? "has-vote-count" : ""}`} title={isThisNomineeVoted ? `Đã dự đoán cho đề cử này` : myVoteCount > 0 ? `Bạn đã dự đoán ${myVoteCount} lần cho đề cử này` : ""}>
+        {isThisNomineeVoted ? "✓" : isSelected ? (myVoteCount > 0 ? myVoteCount + 1 : "✓") : myVoteCount > 0 ? myVoteCount : ""}
       </div>
     </div>
   );

@@ -168,7 +168,7 @@ export function formatCurrency(amount) {
     style: "currency",
     currency: "VND",
     minimumFractionDigits: 0,
-  }).format(amount);
+  }).format(amount * 1000);
 }
 
 /**

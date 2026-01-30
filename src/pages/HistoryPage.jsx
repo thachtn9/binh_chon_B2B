@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useVote } from "../context/VoteContext";
-import { formatCurrency, formatDate } from "../lib/supabase";
+import { formatDate } from "../lib/supabase";
 import { Link } from "react-router-dom";
 
 export default function HistoryPage() {
@@ -23,8 +23,6 @@ export default function HistoryPage() {
 
   // Use voteHistory directly - loadUserHistory already filters for current user
   const userHistory = voteHistory;
-  const userTotalSpent = userHistory.reduce((sum, session) => sum + (session.total_amount || 0), 0);
-  //const userTotalVotes = userHistory.reduce((sum, session) => sum + (session.total_categories || 0), 0);
 
   if (!user) {
     return (
@@ -49,7 +47,7 @@ export default function HistoryPage() {
           <h1 className="hero-title" style={{ fontSize: "2.5rem" }}>
             📜 Lịch Sử Dự Đoán
           </h1>
-          <p className="hero-subtitle">Theo dõi tất cả các lượt dự đoán và đóng góp của bạn</p>
+          <p className="hero-subtitle">Theo dõi tất cả các lượt dự đoán của bạn</p>
         </div>
       </section>
 
@@ -60,16 +58,6 @@ export default function HistoryPage() {
             <div className="stat-card">
               <div className="stat-value">{userHistory.length}</div>
               <div className="stat-label">Lượt dự đoán</div>
-            </div>
-            {/* <div className="stat-card">
-                            <div className="stat-value">{userTotalVotes}</div>
-                            <div className="stat-label">Phiếu bầu</div>
-                        </div> */}
-            <div className="stat-card">
-              <div className="stat-value" style={{ color: "var(--gold)" }}>
-                {formatCurrency(userTotalSpent)}
-              </div>
-              <div className="stat-label">Tổng đóng góp</div>
             </div>
           </div>
 
@@ -96,7 +84,6 @@ export default function HistoryPage() {
                 <div key={session.id} className="history-item">
                   <div className="history-item-header">
                     <span className="history-date">📅 {formatDate(session.created_at)}</span>
-                    <span className="history-amount">{formatCurrency(session.total_amount)}</span>
                   </div>
                   <div className="history-votes">
                     {session.votes.map((vote, index) => (

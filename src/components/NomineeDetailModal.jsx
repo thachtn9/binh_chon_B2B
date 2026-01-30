@@ -1,4 +1,39 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { likeNominee } from "../lib/supabase";
+
+// Debounce hook for like button
+function useDebounce(callback, delay) {
+  const timeoutRef = useRef(null);
+  const pendingCountRef = useRef(0);
+
+  const debouncedCallback = useCallback(
+    (...args) => {
+      pendingCountRef.current += 1;
+
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      timeoutRef.current = setTimeout(async () => {
+        const count = pendingCountRef.current;
+        pendingCountRef.current = 0;
+        await callback(count, ...args);
+      }, delay);
+    },
+    [callback, delay]
+  );
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  return [debouncedCallback, pendingCountRef];
+}
 
 // Role badge colors
 const roleBadgeColors = {
@@ -8,31 +43,34 @@ const roleBadgeColors = {
   PROJECT: { bg: "#f59e0b", label: "Dự án" },
 };
 
-export default function NomineeDetailModal({
-  isOpen,
-  onClose,
-  nominee,
-  comments = [],
-  onAddComment,
-  user,
-}) {
+export default function NomineeDetailModal({ isOpen, onClose, nominee, comments = [], onAddComment, user, defaultAnonymous = false, isLoading = false }) {
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [isAnonymous, setIsAnonymous] = useState(true);
+  const [likeCount, setLikeCount] = useState(0);
+  const [isLiking, setIsLiking] = useState(false);
+  const [likeAnimation, setLikeAnimation] = useState(false);
   const commentsEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Initialize like count from nominee data
+  useEffect(() => {
+    if (nominee) {
+      setLikeCount(nominee.like_count || 0);
+    }
+  }, [nominee]);
 
   // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       setNewComment("");
-      setIsAnonymous(false);
+      setIsAnonymous(true);
       // Focus input when modal opens
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
     }
-  }, [isOpen]);
+  }, [isOpen, defaultAnonymous]);
 
   // Scroll to bottom of comments when new comment is added
   useEffect(() => {
@@ -66,12 +104,45 @@ export default function NomineeDetailModal({
     try {
       await onAddComment(nominee.id, newComment.trim(), isAnonymous);
       setNewComment("");
-      setIsAnonymous(false);
+      setIsAnonymous(true);
     } catch (error) {
       console.error("Error submitting comment:", error);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Debounced like action - accumulates clicks and sends to DB after delay
+  const submitLikes = useCallback(
+    async (clickCount) => {
+      if (!nominee?.id) return;
+
+      setIsLiking(true);
+      try {
+        // Call API once with accumulated count
+        for (let i = 0; i < clickCount; i++) {
+          await likeNominee(nominee.id);
+        }
+      } catch (error) {
+        console.error("Error liking nominee:", error);
+      } finally {
+        setIsLiking(false);
+      }
+    },
+    [nominee?.id]
+  );
+
+  const [debouncedLike] = useDebounce(submitLikes, 300);
+
+  // Handle like action with debounce
+  const handleLike = () => {
+    // Immediately update UI
+    setLikeCount((prev) => prev + 1);
+    setLikeAnimation(true);
+    setTimeout(() => setLikeAnimation(false), 300);
+
+    // Debounce the API call
+    debouncedLike();
   };
 
   if (!isOpen || !nominee) return null;
@@ -81,12 +152,12 @@ export default function NomineeDetailModal({
     label: nominee.role,
   };
 
+  // Sort comments: oldest first (newest at bottom)
+  const sortedComments = [...comments].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
   return (
     <div className="nominee-detail-modal-overlay" onClick={onClose}>
-      <div
-        className="nominee-detail-modal nominee-detail-modal-split"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="nominee-detail-modal nominee-detail-modal-split" onClick={(e) => e.stopPropagation()}>
         {/* Close button */}
         <button className="nominee-detail-modal-close" onClick={onClose}>
           ✕
@@ -99,52 +170,29 @@ export default function NomineeDetailModal({
               <span>💬 Bình luận ({comments.length})</span>
             </div>
 
-            {/* Comments List */}
+            {/* Comments List - sorted oldest first (newest at bottom) */}
             <div className="nominee-detail-comments-list">
-              {comments.length === 0 ? (
+              {sortedComments.length === 0 ? (
                 <div className="nominee-detail-no-comments">
                   <div className="no-comments-icon">💬</div>
                   <p>Chưa có bình luận nào</p>
-                  <p className="no-comments-hint">
-                    Hãy là người đầu tiên gửi bình luận! 🎉
-                  </p>
+                  <p className="no-comments-hint">Hãy là người đầu tiên gửi bình luận! 🎉</p>
                 </div>
               ) : (
                 <>
-                  {comments.map((comment) => (
+                  {sortedComments.map((comment) => (
                     <div key={comment.id} className="nominee-detail-comment-item">
                       <img
-                        src={
-                          comment.is_anonymous
-                            ? `https://ui-avatars.com/api/?name=A&size=40&background=6b7280&color=fff`
-                            : comment.commenter_avatar ||
-                              `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                                comment.commenter_name || "User"
-                              )}&size=40&background=6366f1&color=fff`
-                        }
-                        alt={
-                          comment.is_anonymous ? "Ẩn danh" : comment.commenter_name
-                        }
+                        src={comment.is_anonymous ? `https://ui-avatars.com/api/?name=A&size=40&background=6b7280&color=fff` : comment.commenter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.commenter_name || "User")}&size=40&background=6366f1&color=fff`}
+                        alt={comment.is_anonymous ? "Ẩn danh" : comment.commenter_name}
                         className="nominee-detail-comment-avatar"
                       />
                       <div className="nominee-detail-comment-content">
                         <div className="nominee-detail-comment-header">
-                          <span
-                            className={`nominee-detail-comment-author ${
-                              comment.is_anonymous ? "anonymous" : ""
-                            }`}
-                          >
-                            {comment.is_anonymous
-                              ? "🎭 Ẩn danh"
-                              : comment.commenter_name || "Ẩn danh"}
-                          </span>
-                          <span className="nominee-detail-comment-time">
-                            {formatTime(comment.created_at)}
-                          </span>
+                          <span className={`nominee-detail-comment-author ${comment.is_anonymous ? "anonymous" : ""}`}>{comment.is_anonymous ? "🎭 Ẩn danh" : comment.commenter_name || "Ẩn danh"}</span>
+                          <span className="nominee-detail-comment-time">{formatTime(comment.created_at)}</span>
                         </div>
-                        <p className="nominee-detail-comment-text">
-                          {comment.content}
-                        </p>
+                        <p className="nominee-detail-comment-text">{comment.content}</p>
                       </div>
                     </div>
                   ))}
@@ -156,51 +204,17 @@ export default function NomineeDetailModal({
             {/* Comment Input */}
             {user ? (
               <div className="nominee-detail-comment-form-wrapper">
-                <form
-                  onSubmit={handleSubmitComment}
-                  className="nominee-detail-comment-form"
-                >
-                  <img
-                    src={
-                      isAnonymous
-                        ? `https://ui-avatars.com/api/?name=A&size=40&background=6b7280&color=fff`
-                        : user.user_metadata?.avatar_url ||
-                          `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                            user.user_metadata?.full_name || user.email
-                          )}&size=40&background=6366f1&color=fff`
-                    }
-                    alt="Your avatar"
-                    className="nominee-detail-form-avatar"
-                  />
+                <form onSubmit={handleSubmitComment} className="nominee-detail-comment-form">
+                  <img src={isAnonymous ? `https://ui-avatars.com/api/?name=A&size=40&background=6b7280&color=fff` : user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.user_metadata?.full_name || user.email)}&size=40&background=6366f1&color=fff`} alt="Your avatar" className="nominee-detail-form-avatar" />
                   <div className="nominee-detail-input-wrapper">
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Viết bình luận của bạn..."
-                      className="nominee-detail-comment-input"
-                      disabled={isSubmitting}
-                    />
-                    <button
-                      type="submit"
-                      className="nominee-detail-comment-btn"
-                      disabled={!newComment.trim() || isSubmitting}
-                    >
-                      {isSubmitting ? (
-                        <span className="btn-loading">⏳</span>
-                      ) : (
-                        "Gửi"
-                      )}
+                    <input ref={inputRef} type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Viết bình luận của bạn..." className="nominee-detail-comment-input" disabled={isSubmitting} />
+                    <button type="submit" className="nominee-detail-comment-btn" disabled={!newComment.trim() || isSubmitting}>
+                      {isSubmitting ? <span className="btn-loading">⏳</span> : "Gửi"}
                     </button>
                   </div>
                 </form>
                 <label className="nominee-detail-anonymous-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={isAnonymous}
-                    onChange={(e) => setIsAnonymous(e.target.checked)}
-                  />
+                  <input type="checkbox" checked={isAnonymous} onChange={(e) => setIsAnonymous(e.target.checked)} />
                   <span>🎭 Gửi ẩn danh</span>
                 </label>
               </div>
@@ -216,35 +230,24 @@ export default function NomineeDetailModal({
         <div className="nominee-detail-right">
           <div className="nominee-detail-header">
             <div className="nominee-detail-avatar-wrapper">
-              <img
-                src={
-                  nominee.url_avatar ||
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                    nominee.full_name || nominee.user_name
-                  )}&size=200&background=6366f1&color=fff`
-                }
-                alt={nominee.full_name || nominee.user_name}
-                className="nominee-detail-avatar"
-              />
-              <span
-                className="nominee-detail-role-badge"
-                style={{ backgroundColor: roleInfo.bg }}
-              >
+              <img src={nominee.url_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(nominee.full_name || nominee.user_name)}&size=200&background=6366f1&color=fff`} alt={nominee.full_name || nominee.user_name} className="nominee-detail-avatar" />
+              <span className="nominee-detail-role-badge" style={{ backgroundColor: roleInfo.bg }}>
                 {roleInfo.label}
               </span>
             </div>
 
             <div className="nominee-detail-info">
-              <h2 className="nominee-detail-name">
-                {nominee.full_name || nominee.user_name}
-              </h2>
+              <h2 className="nominee-detail-name">{nominee.full_name || nominee.user_name}</h2>
               <p className="nominee-detail-username">@{nominee.user_name}</p>
-              {nominee.description && (
-                <p className="nominee-detail-description">{nominee.description}</p>
-              )}
+              {nominee.description && <p className="nominee-detail-description">{nominee.description}</p>}
             </div>
 
+            {/* Like button and stats */}
             <div className="nominee-detail-stats">
+              <button className={`nominee-detail-like-btn ${likeAnimation ? "like-animate" : ""}`} onClick={handleLike} disabled={isLiking} title="Thích profile này">
+                <span className="like-icon">❤️</span>
+                <span className="like-count">{likeCount}</span>
+              </button>
               <div className="nominee-detail-stat">
                 <span className="stat-value">{comments.length}</span>
                 <span className="stat-label">Bình luận</span>

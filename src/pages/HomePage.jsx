@@ -1,8 +1,57 @@
-import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { fetchNominees, addComment, fetchAllComments } from "../lib/supabase";
+import { fetchNominees, addComment, fetchAllComments, fetchNomineeByIdFresh, fetchCommentsWithProfile, fetchYEBSponsorship, formatCurrency } from "../lib/supabase";
 import NomineeDetailModal from "../components/NomineeDetailModal";
+
+// Hook để theo dõi visibility của element với Intersection Observer
+function useIntersectionObserver(options = {}) {
+  const [visibleItems, setVisibleItems] = useState(new Set());
+  const observerRef = useRef(null);
+
+  const observe = useCallback((element, id) => {
+    if (!element || !observerRef.current) return;
+    element.dataset.observeId = id;
+    observerRef.current.observe(element);
+  }, []);
+
+  useEffect(() => {
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const id = entry.target.dataset.observeId;
+          if (entry.isIntersecting) {
+            setVisibleItems((prev) => new Set([...prev, id]));
+            // Unobserve sau khi đã visible để không trigger lại
+            observerRef.current?.unobserve(entry.target);
+          }
+        });
+      },
+      {
+        threshold: 0.1,
+        rootMargin: "50px 0px",
+        ...options,
+      }
+    );
+
+    return () => {
+      observerRef.current?.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return { visibleItems, observe };
+}
+
+// Shuffle array (Fisher-Yates algorithm)
+function shuffleArray(array) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
 // Role badge colors
 const roleBadgeColors = {
@@ -18,26 +67,12 @@ function NomineeCard({ nominee, comments, onClick }) {
   const previewComments = comments.slice(0, 3); // Lấy 3 bình luận đầu tiên
 
   return (
-    <div 
-      className="nominee-card-v2 nominee-card-clickable" 
-      id={`nominee-${nominee.id}`}
-      onClick={() => onClick(nominee)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && onClick(nominee)}
-    >
+    <div className="nominee-card-v2 nominee-card-clickable" id={`nominee-${nominee.id}`} onClick={() => onClick(nominee)} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && onClick(nominee)}>
       {/* Avatar & Info */}
       <div className="nominee-card-header">
         <div className="nominee-card-avatar-wrapper">
-          <img
-            src={nominee.url_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(nominee.full_name || nominee.user_name)}&size=200&background=6366f1&color=fff`}
-            alt={nominee.full_name || nominee.user_name}
-            className="nominee-card-avatar"
-          />
-          <span
-            className="nominee-card-role-badge"
-            style={{ backgroundColor: roleInfo.bg }}
-          >
+          <img src={nominee.url_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(nominee.full_name || nominee.user_name)}&size=200&background=6366f1&color=fff`} alt={nominee.full_name || nominee.user_name} className="nominee-card-avatar" />
+          <span className="nominee-card-role-badge" style={{ backgroundColor: roleInfo.bg }}>
             {roleInfo.label}
           </span>
         </div>
@@ -52,8 +87,9 @@ function NomineeCard({ nominee, comments, onClick }) {
       <div className="nominee-card-comments-preview">
         <div className="comments-header-compact">
           <span>💬 Bình luận ({comments.length})</span>
+          <span className="like-count-compact">❤️ {nominee.like_count || 0}</span>
         </div>
-        
+
         <div className="comments-list-compact">
           {previewComments.length === 0 ? (
             <div className="no-comments-compact">
@@ -63,16 +99,12 @@ function NomineeCard({ nominee, comments, onClick }) {
             previewComments.map((comment) => (
               <div key={comment.id} className="comment-item-compact">
                 <img
-                  src={comment.is_anonymous 
-                    ? `https://ui-avatars.com/api/?name=A&size=32&background=6b7280&color=fff`
-                    : (comment.commenter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.commenter_name || "User")}&size=32&background=6366f1&color=fff`)}
+                  src={comment.is_anonymous ? `https://ui-avatars.com/api/?name=A&size=32&background=6b7280&color=fff` : comment.commenter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.commenter_name || "User")}&size=32&background=6366f1&color=fff`}
                   alt={comment.is_anonymous ? "Ẩn danh" : comment.commenter_name}
                   className="comment-avatar-compact"
                 />
                 <div className="comment-content-compact">
-                  <span className={`comment-author-compact ${comment.is_anonymous ? 'anonymous' : ''}`}>
-                    {comment.is_anonymous ? "🎭 Ẩn danh" : (comment.commenter_name || "Ẩn danh")}
-                  </span>
+                  <span className={`comment-author-compact ${comment.is_anonymous ? "anonymous" : ""}`}>{comment.is_anonymous ? "🎭 Ẩn danh" : comment.commenter_name || "Ẩn danh"}</span>
                   <p className="comment-text-compact">{comment.content}</p>
                 </div>
               </div>
@@ -83,9 +115,7 @@ function NomineeCard({ nominee, comments, onClick }) {
 
       {/* Footer with click hint */}
       <div className="nominee-card-footer">
-        <div className="nominee-card-click-hint">
-          Nhấn để xem chi tiết & bình luận →
-        </div>
+        <div className="nominee-card-click-hint">Nhấn để xem chi tiết & bình luận →</div>
       </div>
     </div>
   );
@@ -99,9 +129,9 @@ function NavigationDots({ nominees, activeIndex, onNavigate }) {
   // Scroll to keep active item visible
   useEffect(() => {
     if (dotsRef.current && nominees.length > MAX_VISIBLE) {
-      const activeButton = dotsRef.current.querySelector('.nav-dot-v2.active');
+      const activeButton = dotsRef.current.querySelector(".nav-dot-v2.active");
       if (activeButton) {
-        activeButton.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        activeButton.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
     }
   }, [activeIndex, nominees.length]);
@@ -110,38 +140,98 @@ function NavigationDots({ nominees, activeIndex, onNavigate }) {
     <div className="navigation-dots-v2">
       <div className="nav-dots-container" ref={dotsRef}>
         {nominees.map((nominee, index) => (
-          <button
-            key={nominee.id}
-            className={`nav-dot-v2 ${index === activeIndex ? "active" : ""}`}
-            onClick={() => onNavigate(index)}
-            title={nominee.full_name || nominee.user_name}
-          >
-            <img
-              src={nominee.url_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(nominee.full_name || nominee.user_name)}&size=60&background=6366f1&color=fff`}
-              alt={nominee.full_name || nominee.user_name}
-              className="nav-dot-avatar-v2"
-            />
+          <button key={nominee.id} className={`nav-dot-v2 ${index === activeIndex ? "active" : ""}`} onClick={() => onNavigate(index)} title={nominee.full_name || nominee.user_name}>
+            <img src={nominee.url_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(nominee.full_name || nominee.user_name)}&size=60&background=6366f1&color=fff`} alt={nominee.full_name || nominee.user_name} className="nav-dot-avatar-v2" />
+            <span className="nav-dot-username">{nominee.user_name}</span>
           </button>
         ))}
       </div>
-      {nominees.length > MAX_VISIBLE && (
-        <div className="nav-dots-hint">Cuộn để xem thêm</div>
-      )}
+      {nominees.length > MAX_VISIBLE && <div className="nav-dots-hint">Cuộn để xem thêm</div>}
     </div>
   );
 }
 
 export default function HomePage() {
   const { user, signInWithGoogle } = useAuth();
+  const location = useLocation();
   const [nominees, setNominees] = useState([]);
   const [comments, setComments] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef(null);
-  
+
   // Modal state
   const [selectedNominee, setSelectedNominee] = useState(null);
+  const [modalComments, setModalComments] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [defaultAnonymous, setDefaultAnonymous] = useState(false);
+  const [isLoadingModal, setIsLoadingModal] = useState(false);
+
+  // YEB sponsorship state
+  const [yebTotal, setYebTotal] = useState(null);
+  const [yebLoading, setYebLoading] = useState(true);
+
+  // Lazy load intersection observer
+  const { visibleItems, observe } = useIntersectionObserver();
+
+  // Fetch YEB sponsorship data
+  useEffect(() => {
+    async function loadYEBData() {
+      setYebLoading(true);
+      try {
+        const total = await fetchYEBSponsorship();
+        setYebTotal(total);
+      } catch (error) {
+        console.error("Error loading YEB data:", error);
+      } finally {
+        setYebLoading(false);
+      }
+    }
+    loadYEBData();
+  }, []);
+
+  // Handle URL hash to open specific profile
+  useEffect(() => {
+    if (loading || nominees.length === 0) return;
+
+    const hash = location.hash;
+    if (hash && hash.startsWith("#")) {
+      const username = hash.substring(1); // Remove the # character
+      if (username) {
+        // Find nominee by username
+        const nominee = nominees.find((n) => n.user_name?.toLowerCase() === username.toLowerCase());
+
+        if (nominee) {
+          // Scroll to the nominee card
+          setTimeout(async () => {
+            const element = document.getElementById(`nominee-${nominee.id}`);
+            if (element) {
+              element.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+
+            // Open modal with anonymous checkbox checked by default
+            setDefaultAnonymous(true);
+            setIsModalOpen(true);
+            setIsLoadingModal(true);
+
+            try {
+              // Fetch fresh data
+              const [freshNominee, freshComments] = await Promise.all([fetchNomineeByIdFresh(nominee.id), fetchCommentsWithProfile(nominee.id)]);
+
+              setSelectedNominee(freshNominee || nominee);
+              setModalComments(freshComments);
+            } catch (error) {
+              console.error("Error refreshing modal data:", error);
+              setSelectedNominee(nominee);
+              setModalComments(comments[nominee.id] || []);
+            } finally {
+              setIsLoadingModal(false);
+            }
+          }, 500);
+        }
+      }
+    }
+  }, [location.hash, loading, nominees]);
 
   // Fetch nominees and comments
   useEffect(() => {
@@ -151,11 +241,12 @@ export default function HomePage() {
         // Fetch nominees (only individuals, not projects)
         const allNominees = await fetchNominees();
         const individualNominees = allNominees.filter((n) => n.role !== "PROJECT");
-        setNominees(individualNominees);
+        const shuffledNominees = shuffleArray(individualNominees);
+        setNominees(shuffledNominees);
 
         // Fetch all comments
         const allComments = await fetchAllComments();
-        
+
         // Group comments by nominee_id
         const groupedComments = {};
         individualNominees.forEach((n) => {
@@ -185,32 +276,52 @@ export default function HomePage() {
   const handleAddComment = async (nomineeId, content, isAnonymous = false) => {
     if (!user) return;
 
-    const newComment = await addComment(
-      nomineeId,
-      user.email,
-      user.user_metadata?.full_name || user.email,
-      user.user_metadata?.avatar_url,
-      content,
-      isAnonymous
-    );
+    const newComment = await addComment(nomineeId, user.email, user.user_metadata?.full_name || user.email, user.user_metadata?.avatar_url, content, isAnonymous);
 
-    // Update local state
+    // Update local state for card preview
     setComments((prev) => ({
       ...prev,
       [nomineeId]: [newComment, ...(prev[nomineeId] || [])],
     }));
+
+    // Update modal comments
+    setModalComments((prev) => [...prev, newComment]);
   };
 
-  // Handle open modal
-  const handleOpenModal = (nominee) => {
+  // Handle open modal - refresh data from database
+  const handleOpenModal = async (nominee) => {
     setSelectedNominee(nominee);
+    setDefaultAnonymous(false);
     setIsModalOpen(true);
+    setIsLoadingModal(true);
+
+    try {
+      // Fetch fresh nominee data and comments with profile avatars
+      const [freshNominee, freshComments] = await Promise.all([fetchNomineeByIdFresh(nominee.id), fetchCommentsWithProfile(nominee.id)]);
+
+      if (freshNominee) {
+        setSelectedNominee(freshNominee);
+      }
+      setModalComments(freshComments);
+    } catch (error) {
+      console.error("Error refreshing modal data:", error);
+      // Fallback to cached comments
+      setModalComments(comments[nominee.id] || []);
+    } finally {
+      setIsLoadingModal(false);
+    }
   };
 
   // Handle close modal
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedNominee(null);
+    setModalComments([]);
+    setDefaultAnonymous(false);
+    // Clear the hash from URL when closing modal
+    if (location.hash) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
   };
 
   if (loading) {
@@ -226,16 +337,38 @@ export default function HomePage() {
 
   return (
     <main className="landing-page-v2" ref={containerRef}>
+      {/* YEB Sponsorship Banner */}
+      {yebTotal !== null && (
+        <section className="yeb-sponsorship-banner">
+          <div className="container">
+            <div className="yeb-content">
+              <img src="/than_tai.png" alt="Thần Tài" className="yeb-thantai-img" />
+              <div className="yeb-info">
+                <h3 className="yeb-title">🎊 YEB B2B 2025</h3>
+                <p className="yeb-subtitle">Tổng tiền tài trợ cho YEB</p>
+                <div className="yeb-amount">{yebLoading ? <span className="yeb-loading">Đang tải...</span> : <span className="yeb-value">{formatCurrency(yebTotal)}</span>}</div>
+                <div className="yeb-donate-cta">
+                  <a
+                    href="https://docs.google.com/spreadsheets/d/17p0Wg81ZQ4mFvmArnAugY_q1U8w6dOG-Pt__pYeUC38/edit?gid=88569587"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="yeb-donate-btn"
+                  >
+                    <span>❤️</span> Tài trợ ngay
+                  </a>
+                </div>
+              </div>
+              <img src="/than_tai.png" alt="Thần Tài" className="yeb-thantai-img yeb-thantai-flip" />
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Hero Section */}
       <section className="landing-hero-v2">
         <div className="landing-hero-content-v2">
-          <h1 className="landing-hero-title-v2">
-            🏆 ISCGP Awards 2025
-          </h1>
-          <p className="landing-hero-subtitle-v2">
-            Vinh danh những cá nhân xuất sắc nhất năm 2025
-          </p>
-          
+          {/* <h1 className="landing-hero-title-v2">🏆 ISCGP Awards 2025</h1> */}
+          <p className="landing-hero-subtitle-v2">Vinh danh những cá nhân xuất sắc nhất năm 2025</p>
           <div className="landing-hero-actions-v2">
             {user ? (
               <Link to="/vote" className="btn btn-gold btn-lg">
@@ -249,7 +382,7 @@ export default function HomePage() {
           </div>
 
           <div className="scroll-indicator-v2" onClick={() => navigateToNominee(0)}>
-            <span>Xem đề cử</span>
+            <span>Xem Profile thành viên B2B</span>
             <div className="scroll-arrow-v2">↓</div>
           </div>
         </div>
@@ -259,24 +392,28 @@ export default function HomePage() {
       {nominees.length > 0 && (
         <>
           {/* Navigation Dots */}
-          <NavigationDots
-            nominees={nominees}
-            activeIndex={activeIndex}
-            onNavigate={navigateToNominee}
-          />
+          <NavigationDots nominees={nominees} activeIndex={activeIndex} onNavigate={navigateToNominee} />
 
           <section className="nominees-section-v2">
             <div className="container">
-              <h2 className="nominees-section-title">👤 Danh sách đề cử ({nominees.length} người)</h2>
+              <h2 className="nominees-section-title">👤 Danh sách profile ({nominees.length} người)</h2>
               <div className="nominees-grid-v2">
-                {nominees.map((nominee) => (
-                  <NomineeCard
-                    key={nominee.id}
-                    nominee={nominee}
-                    comments={comments[nominee.id] || []}
-                    onClick={handleOpenModal}
-                  />
-                ))}
+                {nominees.map((nominee, index) => {
+                  const cardId = `nominee-card-${nominee.id}`;
+                  const isVisible = visibleItems.has(cardId);
+                  // Delay index dựa trên vị trí trong row (3 cards per row)
+                  const delayIndex = index % 9; // Reset delay sau mỗi 9 cards
+
+                  return (
+                    <div
+                      key={nominee.id}
+                      ref={(el) => observe(el, cardId)}
+                      className={`nominee-card-wrapper ${isVisible ? "is-visible" : ""} delay-${delayIndex}`}
+                    >
+                      <NomineeCard nominee={nominee} comments={comments[nominee.id] || []} onClick={handleOpenModal} />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </section>
@@ -310,14 +447,7 @@ export default function HomePage() {
       </section>
 
       {/* Nominee Detail Modal */}
-      <NomineeDetailModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        nominee={selectedNominee}
-        comments={selectedNominee ? (comments[selectedNominee.id] || []) : []}
-        onAddComment={handleAddComment}
-        user={user}
-      />
+      <NomineeDetailModal isOpen={isModalOpen} onClose={handleCloseModal} nominee={selectedNominee} comments={modalComments} onAddComment={handleAddComment} user={user} defaultAnonymous={defaultAnonymous} isLoading={isLoadingModal} />
     </main>
   );
 }

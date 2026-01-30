@@ -336,6 +336,74 @@ export async function submitVotesToDB(voterId, voterEmail, voterName, votes, tot
 }
 
 /**
+ * Delete existing vote for a specific category
+ * Used when user wants to re-vote for a category
+ * @param {string} voterId - UUID of the voter
+ * @param {string} categoryId - ID of the category
+ * @returns {boolean} - True if deleted successfully
+ */
+export async function deleteVoteForCategory(voterId, categoryId) {
+  if (!supabase) {
+    // Demo mode - remove from localStorage
+    return true;
+  }
+
+  try {
+    // Find the vote to delete
+    const { data: existingVote, error: findError } = await supabase
+      .from("votes")
+      .select("id, session_id")
+      .eq("voter_id", voterId)
+      .eq("category_id", categoryId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (findError || !existingVote) {
+      console.log("No existing vote found for category:", categoryId);
+      return true; // No vote to delete
+    }
+
+    // Delete the vote
+    const { error: deleteError } = await supabase
+      .from("votes")
+      .delete()
+      .eq("id", existingVote.id);
+
+    if (deleteError) {
+      console.error("Error deleting vote:", deleteError);
+      throw new Error(`Failed to delete vote: ${deleteError.message}`);
+    }
+
+    // Check if the session has any remaining votes
+    const { data: remainingVotes, error: countError } = await supabase
+      .from("votes")
+      .select("id")
+      .eq("session_id", existingVote.session_id);
+
+    if (!countError && remainingVotes && remainingVotes.length === 0) {
+      // If no remaining votes, delete the session too
+      await supabase
+        .from("vote_sessions")
+        .delete()
+        .eq("id", existingVote.session_id);
+    } else if (remainingVotes) {
+      // Update session's total_categories count
+      await supabase
+        .from("vote_sessions")
+        .update({ total_categories: remainingVotes.length })
+        .eq("id", existingVote.session_id);
+    }
+
+    console.log("Successfully deleted vote for category:", categoryId);
+    return true;
+  } catch (err) {
+    console.error("Error deleting vote for category:", err);
+    throw err;
+  }
+}
+
+/**
  * Get user's vote history
  */
 export async function getUserVoteHistory(voterId) {
@@ -709,7 +777,7 @@ export async function findCorrectPredictionsByCategory(winners) {
       const correctVotes = allVotes.filter((vote) => vote.category_id === categoryId && vote.nominee_id === winnerId);
 
       // Số người thực tế đã chọn đúng nominee này (unique voters)
-      const uniqueVoterEmails = new Set(correctVotes.map(v => v.voter_email || v.voter_id));
+      const uniqueVoterEmails = new Set(correctVotes.map((v) => v.voter_email || v.voter_id));
       const actualCorrectCount = uniqueVoterEmails.size;
 
       // Group by voter (email) - chỉ lấy dự đoán đầu tiên của mỗi người
@@ -903,12 +971,7 @@ export async function fetchCommentsForNominee(nomineeId) {
   }
 
   try {
-    const { data, error } = await supabase
-      .from("comments")
-      .select("*")
-      .eq("nominee_id", nomineeId)
-      .eq("is_visible", true)
-      .order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("comments").select("*").eq("nominee_id", nomineeId).eq("is_visible", true).order("created_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching comments:", error);
@@ -933,11 +996,7 @@ export async function fetchAllComments() {
   }
 
   try {
-    const { data, error } = await supabase
-      .from("comments")
-      .select("*")
-      .eq("is_visible", true)
-      .order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("comments").select("*").eq("is_visible", true).order("created_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching all comments:", error);
@@ -979,12 +1038,8 @@ export async function addComment(nomineeId, commenterEmail, commenterName, comme
   try {
     // Tìm commenter_id từ email (nếu có trong bảng users)
     let commenterId = null;
-    const { data: user } = await supabase
-      .from("users")
-      .select("id")
-      .eq("email", commenterEmail)
-      .single();
-    
+    const { data: user } = await supabase.from("users").select("id").eq("email", commenterEmail).single();
+
     if (user) {
       commenterId = user.id;
     }
@@ -1027,11 +1082,7 @@ export async function deleteComment(commentId, commenterEmail) {
   }
 
   try {
-    const { error } = await supabase
-      .from("comments")
-      .delete()
-      .eq("id", commentId)
-      .eq("commenter_email", commenterEmail);
+    const { error } = await supabase.from("comments").delete().eq("id", commentId).eq("commenter_email", commenterEmail);
 
     if (error) {
       throw new Error(`Failed to delete comment: ${error.message}`);
@@ -1052,4 +1103,222 @@ export async function deleteComment(commentId, commenterEmail) {
  */
 export function clearCommentsCache() {
   commentsCache = {};
+}
+
+/**
+ * Like a nominee profile
+ * Can like multiple times - just increments counter
+ * @param {string} nomineeId - UUID of the nominee to like
+ * @returns {number} - New like count
+ */
+export async function likeNominee(nomineeId) {
+  if (!supabase) {
+    // Demo mode - save to localStorage
+    const key = `like_count_${nomineeId}`;
+    const current = parseInt(localStorage.getItem(key) || "0");
+    const newCount = current + 1;
+    localStorage.setItem(key, newCount.toString());
+    return newCount;
+  }
+
+  try {
+    // Call the database function to increment like_count
+    const { data, error } = await supabase.rpc("increment_like_count", {
+      user_id: nomineeId,
+    });
+
+    if (error) {
+      // If function doesn't exist, try direct update
+      const { data: userData, error: updateError } = await supabase
+        .from("users")
+        .update({ like_count: supabase.raw("COALESCE(like_count, 0) + 1") })
+        .eq("id", nomineeId)
+        .select("like_count")
+        .single();
+
+      if (updateError) {
+        // Fallback: fetch current count and increment
+        const { data: currentUser } = await supabase.from("users").select("like_count").eq("id", nomineeId).single();
+
+        const newCount = (currentUser?.like_count || 0) + 1;
+        await supabase.from("users").update({ like_count: newCount }).eq("id", nomineeId);
+
+        // Clear nominees cache
+        clearNomineesCache();
+        return newCount;
+      }
+
+      clearNomineesCache();
+      return userData?.like_count || 0;
+    }
+
+    // Clear nominees cache to get fresh data
+    clearNomineesCache();
+    return data;
+  } catch (err) {
+    console.error("Error liking nominee:", err);
+    throw err;
+  }
+}
+
+/**
+ * Get like count for a nominee (for demo mode)
+ */
+export function getLikeCount(nomineeId) {
+  if (!supabase) {
+    return parseInt(localStorage.getItem(`like_count_${nomineeId}`) || "0");
+  }
+  return 0; // In production, use the like_count from nominee data
+}
+
+/**
+ * Fetch fresh nominee data by ID (bypasses cache)
+ */
+export async function fetchNomineeByIdFresh(nomineeId) {
+  if (!supabase) {
+    return sampleNominees.find((n) => n.id === nomineeId) || null;
+  }
+
+  try {
+    const { data, error } = await supabase.from("users").select("*").eq("id", nomineeId).single();
+
+    if (error) {
+      console.error("Error fetching nominee:", error);
+      return null;
+    }
+
+    return data;
+  } catch (err) {
+    console.error("Error fetching nominee:", err);
+    return null;
+  }
+}
+
+/**
+ * Fetch comments with commenter profile info (avatar from users table)
+ */
+export async function fetchCommentsWithProfile(nomineeId) {
+  if (!supabase) {
+    const stored = localStorage.getItem(`comments_${nomineeId}`);
+    return stored ? JSON.parse(stored) : [];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("comments")
+      .select(
+        `
+        *,
+        commenter:commenter_id (
+          id,
+          user_name,
+          full_name,
+          url_avatar,
+          role
+        )
+      `
+      )
+      .eq("nominee_id", nomineeId)
+      .eq("is_visible", true)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching comments with profile:", error);
+      return [];
+    }
+
+    // Transform data to include avatar from profile
+    return (data || []).map((comment) => ({
+      ...comment,
+      commenter_avatar: comment.is_anonymous ? null : comment.commenter?.url_avatar || comment.commenter_avatar,
+    }));
+  } catch (err) {
+    console.error("Error fetching comments with profile:", err);
+    return [];
+  }
+}
+
+/**
+ * Fetch YEB sponsorship total from Google Sheets
+ * Uses Google Sheets API v4 with API key
+ */
+export async function fetchYEBSponsorship() {
+  try {
+    // Google Sheets configuration
+    const sheetId = "17p0Wg81ZQ4mFvmArnAugY_q1U8w6dOG-Pt__pYeUC38";
+    const range = "YEP2025!J62";
+    const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
+
+    console.log("Fetching YEB data with API key:", apiKey ? "Yes" : "No");
+
+    if (apiKey) {
+      // Use Google Sheets API v4 with API key
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(range)}?key=${apiKey}`;
+      console.log("Fetching from URL:", url);
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Google Sheets API error:", response.status, errorText);
+        // Fall back to alternative method
+        return await fetchYEBFromPublicSheet(sheetId);
+      }
+
+      const data = await response.json();
+      console.log("Google Sheets API response:", data);
+
+      const value = data.values?.[0]?.[0];
+
+      if (!value) {
+        console.log("No value found in response");
+        return null;
+      }
+
+      // Parse the value (remove commas and convert to number)
+      const cleanValue = String(value)
+        .replace(/[,₫đ\s]/g, "")
+        .trim();
+      const numValue = parseFloat(cleanValue);
+      console.log("Parsed value:", numValue);
+      return isNaN(numValue) ? null : numValue;
+    }
+
+    // No API key, try alternative methods
+    return await fetchYEBFromPublicSheet(sheetId);
+  } catch (err) {
+    console.error("Error fetching YEB sponsorship:", err);
+    return null;
+  }
+}
+
+/**
+ * Fallback method: Fetch from public Google Sheets using visualization API
+ */
+async function fetchYEBFromPublicSheet(sheetId) {
+  try {
+    // Method 1: Try Google Visualization API (requires sheet to be published)
+    const vizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=YEP2025&range=J62`;
+    console.log("Trying visualization API:", vizUrl);
+
+    const response = await fetch(vizUrl);
+
+    if (!response.ok) {
+      console.error("Visualization API failed:", response.status);
+      return null;
+    }
+
+    const text = await response.text();
+    console.log("Raw CSV response:", text);
+
+    // Parse CSV - remove quotes, newlines and parse number
+    const cleanValue = text.replace(/["\n\r,₫đ\s]/g, "").trim();
+    const numValue = parseFloat(cleanValue);
+    console.log("Parsed CSV value:", numValue);
+
+    return isNaN(numValue) ? null : numValue;
+  } catch (err) {
+    console.error("Error fetching from public sheet:", err);
+    return null;
+  }
 }
