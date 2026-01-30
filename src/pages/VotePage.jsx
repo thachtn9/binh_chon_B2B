@@ -177,7 +177,7 @@ export default function VotePage() {
       {/* Header */}
       <section className="vote-header">
         <div className="container">
-          <h1 className="vote-title">🗳️ Dự Đoán ISCGP Awards 2025</h1>
+          <h1 className="vote-title">🗳️ Dự Đoán B2B Awards 2025</h1>
           <p className="vote-subtitle">
             Chọn <strong>1 hoặc nhiều hạng mục</strong> • Mỗi hạng mục chỉ được chọn <strong style={{ color: "var(--gold)" }}>1 người</strong>
           </p>

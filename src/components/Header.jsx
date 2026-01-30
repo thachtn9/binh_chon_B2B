@@ -12,7 +12,7 @@ export default function Header() {
             <div className="container header-content">
                 <Link to="/" className="logo">
                     <span className="logo-icon">🏆</span>
-                    <span>ISCGP Awards 2025</span>
+                    <span>B2B Awards 2025</span>
                 </Link>
 
                 <nav className="nav-links">
