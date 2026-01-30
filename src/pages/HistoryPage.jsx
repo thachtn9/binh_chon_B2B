@@ -26,15 +26,16 @@ export default function HistoryPage() {
     const votesMap = new Map();
 
     // Go through all sessions and votes, keep the latest vote for each category
+    // Sử dụng vote.created_at (thời gian của từng vote) thay vì session.created_at
     voteHistory.forEach((session) => {
       session.votes?.forEach((vote) => {
         const existingVote = votesMap.get(vote.category_id);
-        const voteTime = new Date(session.created_at);
+        const voteTime = new Date(vote.created_at || session.created_at);
 
         if (!existingVote || new Date(existingVote.voted_at) < voteTime) {
           votesMap.set(vote.category_id, {
             ...vote,
-            voted_at: session.created_at,
+            voted_at: vote.created_at || session.created_at,
           });
         }
       });

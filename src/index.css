@@ -1305,7 +1305,7 @@ a:hover {
 .vote-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 70px);
+  height: calc(100vh);
   overflow: hidden;
 }
 
@@ -2615,6 +2615,31 @@ html {
   box-shadow: 0 8px 32px rgba(220, 38, 38, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
+.yeb-lixi-field {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.yeb-lixi {
+  position: absolute;
+  opacity: 0.35;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+  animation: yeb-lixi-float 7s ease-in-out infinite;
+}
+
+@keyframes yeb-lixi-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-18px) rotate(6deg);
+  }
+}
+
 .yeb-sponsorship-banner::before {
   content: "";
   position: absolute;
@@ -2902,6 +2927,7 @@ html {
   cursor: pointer;
   color: var(--text-secondary);
   transition: color var(--transition-fast);
+  padding-top: 20px;
 }
 
 .scroll-indicator-v2:hover {
@@ -3317,9 +3343,8 @@ html {
 
 /* Comments List - Max 3 visible, scrollable */
 .comments-list-compact {
-  flex: 1;
-  min-height: 120px;
-  max-height: 150px;
+  flex: 0 0 150px;
+  height: 150px;
   overflow-y: auto;
   margin-bottom: var(--spacing-sm);
   padding-right: var(--spacing-xs);
@@ -3544,7 +3569,8 @@ html {
   }
 
   .comments-list-compact {
-    max-height: 120px;
+    flex: 0 0 120px;
+    height: 120px;
   }
 }
 
@@ -3859,8 +3885,8 @@ html {
 }
 
 .nominee-detail-avatar {
-  width: 120px;
-  height: 120px;
+  width: 180px;
+  height: 180px;
   border-radius: 50%;
   object-fit: cover;
   border: 4px solid var(--gold);

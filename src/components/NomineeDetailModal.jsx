@@ -70,7 +70,7 @@ const roleBadgeColors = {
   PROJECT: { bg: "#f59e0b", label: "Dự án" },
 };
 
-export default function NomineeDetailModal({ isOpen, onClose, nominee, comments = [], onAddComment, onLikeChange, user, defaultAnonymous = false, isLoading = false }) {
+export default function NomineeDetailModal({ isOpen, onClose, nominee, comments = [], onAddComment, onLikeChange, user, voteUser, defaultAnonymous = false, isLoading = false }) {
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(true);
@@ -299,7 +299,11 @@ export default function NomineeDetailModal({ isOpen, onClose, nominee, comments 
             {user ? (
               <div className="nominee-detail-comment-form-wrapper">
                 <form onSubmit={handleSubmitComment} className="nominee-detail-comment-form">
-                  <img src={isAnonymous ? `https://ui-avatars.com/api/?name=A&size=40&background=6b7280&color=fff` : user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.user_metadata?.full_name || user.email)}&size=40&background=6366f1&color=fff`} alt="Your avatar" className="nominee-detail-form-avatar" />
+                  <img
+                    src={isAnonymous ? `https://ui-avatars.com/api/?name=A&size=40&background=6b7280&color=fff` : voteUser?.url_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(voteUser?.full_name || voteUser?.user_name || user.email)}&size=40&background=6366f1&color=fff`}
+                    alt="Your avatar"
+                    className="nominee-detail-form-avatar"
+                  />
                   <div className="nominee-detail-input-wrapper">
                     <input ref={inputRef} type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder={commentPlaceholder} className="nominee-detail-comment-input" disabled={isSubmitting} />
                     <button type="submit" className="nominee-detail-comment-btn" disabled={!newComment.trim() || isSubmitting}>
@@ -314,7 +318,7 @@ export default function NomineeDetailModal({ isOpen, onClose, nominee, comments 
               </div>
             ) : (
               <div className="nominee-detail-login-prompt">
-                <span>🔐 Đăng nhập để gửi bình luận</span>
+                <span>🔐 Đăng nhập để gửi chia sẻ</span>
               </div>
             )}
           </div>
@@ -363,7 +367,7 @@ export default function NomineeDetailModal({ isOpen, onClose, nominee, comments 
               </div>
               <div className="nominee-detail-stat">
                 <span className="stat-value">{comments.length}</span>
-                <span className="stat-label">Bình luận</span>
+                <span className="stat-label">Chia sẻ</span>
               </div>
             </div>
           </div>
