@@ -355,14 +355,7 @@ export async function submitSingleVoteToDB(voterId, voterEmail, voterName, vote)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const { data: existingSession, error: findError } = await supabase
-    .from("vote_sessions")
-    .select("*")
-    .eq("voter_id", voterId)
-    .gte("created_at", today.toISOString())
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { data: existingSession, error: findError } = await supabase.from("vote_sessions").select("*").eq("voter_id", voterId).gte("created_at", today.toISOString()).order("created_at", { ascending: false }).limit(1).maybeSingle();
 
   if (existingSession) {
     session = existingSession;
@@ -433,14 +426,7 @@ export async function deleteVoteForCategory(voterId, categoryId) {
 
   try {
     // Find the vote to delete
-    const { data: existingVote, error: findError } = await supabase
-      .from("votes")
-      .select("id, session_id")
-      .eq("voter_id", voterId)
-      .eq("category_id", categoryId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
+    const { data: existingVote, error: findError } = await supabase.from("votes").select("id, session_id").eq("voter_id", voterId).eq("category_id", categoryId).order("created_at", { ascending: false }).limit(1).single();
 
     if (findError || !existingVote) {
       console.log("No existing vote found for category:", categoryId);
@@ -448,10 +434,7 @@ export async function deleteVoteForCategory(voterId, categoryId) {
     }
 
     // Delete the vote
-    const { error: deleteError } = await supabase
-      .from("votes")
-      .delete()
-      .eq("id", existingVote.id);
+    const { error: deleteError } = await supabase.from("votes").delete().eq("id", existingVote.id);
 
     if (deleteError) {
       console.error("Error deleting vote:", deleteError);
@@ -459,23 +442,14 @@ export async function deleteVoteForCategory(voterId, categoryId) {
     }
 
     // Check if the session has any remaining votes
-    const { data: remainingVotes, error: countError } = await supabase
-      .from("votes")
-      .select("id")
-      .eq("session_id", existingVote.session_id);
+    const { data: remainingVotes, error: countError } = await supabase.from("votes").select("id").eq("session_id", existingVote.session_id);
 
     if (!countError && remainingVotes && remainingVotes.length === 0) {
       // If no remaining votes, delete the session too
-      await supabase
-        .from("vote_sessions")
-        .delete()
-        .eq("id", existingVote.session_id);
+      await supabase.from("vote_sessions").delete().eq("id", existingVote.session_id);
     } else if (remainingVotes) {
       // Update session's total_categories count
-      await supabase
-        .from("vote_sessions")
-        .update({ total_categories: remainingVotes.length })
-        .eq("id", existingVote.session_id);
+      await supabase.from("vote_sessions").update({ total_categories: remainingVotes.length }).eq("id", existingVote.session_id);
     }
 
     console.log("Successfully deleted vote for category:", categoryId);
@@ -714,7 +688,7 @@ export async function updateUserProfile(userId, profileData) {
       full_name,
       user_name,
       url_avatar,
-      description
+      description,
     })
     .eq("id", userId)
     .select()
@@ -1085,7 +1059,8 @@ export async function fetchCommentsForNominee(nomineeId) {
   }
 
   try {
-    const { data, error } = await supabase.from("comments").select("*").eq("nominee_id", nomineeId).eq("is_visible", true).order("created_at", { ascending: false });
+    // Use comments_public view to hide anonymous commenter info
+    const { data, error } = await supabase.from("comments_public").select("*").eq("nominee_id", nomineeId).eq("is_visible", true).order("created_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching comments:", error);
@@ -1110,7 +1085,8 @@ export async function fetchAllComments() {
   }
 
   try {
-    const { data, error } = await supabase.from("comments").select("*").eq("is_visible", true).order("created_at", { ascending: false });
+    // Use comments_public view to hide anonymous commenter info
+    const { data, error } = await supabase.from("comments_public").select("*").eq("is_visible", true).order("created_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching all comments:", error);
@@ -1247,12 +1223,7 @@ export async function likeNominee(nomineeId, count = 1) {
       const { data: currentUser } = await supabase.from("users").select("like_count").eq("id", nomineeId).single();
 
       const newCount = (currentUser?.like_count || 0) + count;
-      const { data: userData, error: updateError } = await supabase
-        .from("users")
-        .update({ like_count: newCount })
-        .eq("id", nomineeId)
-        .select("like_count")
-        .single();
+      const { data: userData, error: updateError } = await supabase.from("users").update({ like_count: newCount }).eq("id", nomineeId).select("like_count").single();
 
       if (updateError) {
         console.error("Error updating like count:", updateError);
@@ -1315,33 +1286,28 @@ export async function fetchCommentsWithProfile(nomineeId) {
   }
 
   try {
-    const { data, error } = await supabase
-      .from("comments")
-      .select(
-        `
-        *,
-        commenter:commenter_id (
-          id,
-          user_name,
-          full_name,
-          url_avatar,
-          role
-        )
-      `
-      )
-      .eq("nominee_id", nomineeId)
-      .eq("is_visible", true)
-      .order("created_at", { ascending: false });
+    // Use comments_public view to automatically hide anonymous commenter info at DB level
+    // User info is already joined in the view, no need for nested select
+    const { data, error } = await supabase.from("comments_public").select("*").eq("nominee_id", nomineeId).eq("is_visible", true).order("created_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching comments with profile:", error);
       return [];
     }
 
-    // Transform data to include avatar from profile
+    // Transform data to use consistent field names
     return (data || []).map((comment) => ({
       ...comment,
-      commenter_avatar: comment.is_anonymous ? null : comment.commenter?.url_avatar || comment.commenter_avatar,
+      commenter_avatar: comment.commenter_url_avatar || comment.commenter_avatar,
+      commenter: comment.commenter_id
+        ? {
+            id: comment.commenter_id,
+            user_name: comment.commenter_user_name,
+            full_name: comment.commenter_full_name,
+            url_avatar: comment.commenter_url_avatar,
+            role: comment.commenter_role,
+          }
+        : null,
     }));
   } catch (err) {
     console.error("Error fetching comments with profile:", err);
@@ -1446,16 +1412,13 @@ async function fetchYEBFromPublicSheet(sheetId) {
 export async function fetchFPTChatParticipants(token) {
   try {
     const groupId = "686c956d28f4793125708f8d";
-    const response = await fetch(
-      `https://api-chat.fpt.com/group-management/group/${groupId}/participant?limit=500&page=1`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
+    const response = await fetch(`https://api-chat.fpt.com/group-management/group/${groupId}/participant?limit=500&page=1`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -1485,11 +1448,11 @@ export async function bulkUpdateUserAvatars(participants, onProgress) {
     matched: 0,
     skipped: 0,
     errors: [],
-    details: []
+    details: [],
   };
 
   // Filter participants that have both avatarUrl and username
-  const validParticipants = participants.filter(p => p.avatarUrl && p.username);
+  const validParticipants = participants.filter((p) => p.avatarUrl && p.username);
   const total = validParticipants.length;
 
   for (let i = 0; i < validParticipants.length; i++) {
@@ -1500,17 +1463,13 @@ export async function bulkUpdateUserAvatars(participants, onProgress) {
       onProgress({
         current: i + 1,
         total: total,
-        currentUser: participant.username
+        currentUser: participant.username,
       });
     }
 
     try {
       // Find user by username (user_name field in database)
-      const { data: existingUser, error: findError } = await supabase
-        .from("users")
-        .select("id, user_name, url_avatar")
-        .eq("user_name", participant.username)
-        .single();
+      const { data: existingUser, error: findError } = await supabase.from("users").select("id, user_name, url_avatar").eq("user_name", participant.username).single();
 
       if (findError || !existingUser) {
         // Try to match by email prefix or other fields
@@ -1521,22 +1480,19 @@ export async function bulkUpdateUserAvatars(participants, onProgress) {
 
       // Only update if avatar is different
       if (existingUser.url_avatar !== participant.avatarUrl) {
-        const { error: updateError } = await supabase
-          .from("users")
-          .update({ url_avatar: participant.avatarUrl })
-          .eq("id", existingUser.id);
+        const { error: updateError } = await supabase.from("users").update({ url_avatar: participant.avatarUrl }).eq("id", existingUser.id);
 
         if (updateError) {
           results.errors.push({
             username: participant.username,
-            error: updateError.message
+            error: updateError.message,
           });
         } else {
           results.updated++;
           results.details.push({
             username: participant.username,
             oldAvatar: existingUser.url_avatar,
-            newAvatar: participant.avatarUrl
+            newAvatar: participant.avatarUrl,
           });
         }
       } else {
@@ -1545,7 +1501,7 @@ export async function bulkUpdateUserAvatars(participants, onProgress) {
     } catch (err) {
       results.errors.push({
         username: participant.username,
-        error: err.message
+        error: err.message,
       });
     }
   }
