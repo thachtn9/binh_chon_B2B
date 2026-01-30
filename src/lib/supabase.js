@@ -38,7 +38,7 @@ export async function fetchNominees() {
   }
 
   try {
-    const { data, error } = await supabase.from("users").select("*").in("role", ["PM", "BA", "DEV", "PROJECT"]).order("role").order("user_name");
+    const { data, error } = await supabase.from("users").select("*").in("role", ["PM", "BA", "DEV", "TP", "PROJECT"]).order("role").order("user_name");
 
     if (error) {
       console.error("Error fetching nominees:", error);
@@ -962,7 +962,7 @@ export async function getNomineesForWinnerSelection() {
     return [];
   }
 
-  const { data, error } = await supabase.from("users").select("id, user_name, full_name, role, url_avatar").in("role", ["PM", "BA", "DEV", "PROJECT"]).order("role").order("user_name");
+  const { data, error } = await supabase.from("users").select("id, user_name, full_name, role, url_avatar").in("role", ["PM", "BA", "DEV", "TP", "PROJECT"]).order("role").order("user_name");
 
   if (error) {
     console.error("Error fetching nominees for selection:", error);

@@ -120,6 +120,7 @@ const roleBadgeColors = {
   PM: { bg: "#3b82f6", label: "Project Manager" },
   BA: { bg: "#8b5cf6", label: "Business Analyst" },
   DEV: { bg: "#10b981", label: "Developer" },
+  TP: { bg: "#ec4899", label: "Trường phòng" },
   PROJECT: { bg: "#f59e0b", label: "Dự án" },
 };
 
