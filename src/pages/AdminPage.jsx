@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { useAuth } from "../context/AuthContext";
-import { getAllVoteSessions, getVoterRankingReport, getAllUsersForAdmin, updateUserAdminStatus, updateUserProfile, formatCurrency, formatDate, findCorrectPredictionsByCategory, getNomineesForWinnerSelection, getNomineeStatistics, getSettings, updateSettings, fetchFPTChatParticipants, bulkUpdateUserAvatars } from "../lib/supabase";
+import { getAllVoteSessions, getVoterRankingReport, getAllUsersForAdmin, updateUserAdminStatus, updateUserProfile, formatCurrency, formatDate, findCorrectPredictionsByCategory, getNomineesForWinnerSelection, getNomineeStatistics, getSettings, updateSettings, fetchFPTChatParticipants, bulkUpdateUserAvatars, fetchAllCommentsForAdmin } from "../lib/supabase";
 import { categories } from "../config/votingConfig";
 import { useNavigate } from "react-router-dom";
 
@@ -12,6 +12,7 @@ export default function AdminPage() {
   const [votesData, setVotesData] = useState([]);
   const [usersData, setUsersData] = useState([]);
   const [adminsData, setAdminsData] = useState([]);
+  const [commentsData, setCommentsData] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [updatingUserId, setUpdatingUserId] = useState(null);
 
@@ -61,7 +62,7 @@ export default function AdminPage() {
   const fetchData = async () => {
     setIsLoadingData(true);
     try {
-      const [sessions, users, allUsers, nominees, stats, settingsData] = await Promise.all([getAllVoteSessions(), getVoterRankingReport(), getAllUsersForAdmin(), getNomineesForWinnerSelection(), getNomineeStatistics(), getSettings()]);
+      const [sessions, users, allUsers, nominees, stats, settingsData, comments] = await Promise.all([getAllVoteSessions(), getVoterRankingReport(), getAllUsersForAdmin(), getNomineesForWinnerSelection(), getNomineeStatistics(), getSettings(), fetchAllCommentsForAdmin()]);
       setVotesData(sessions);
       setUsersData(users);
       setAdminsData(allUsers);
@@ -69,6 +70,7 @@ export default function AdminPage() {
       setNomineeStats(stats);
       setSettings(settingsData);
       setEditedSettings(settingsData);
+      setCommentsData(comments);
     } catch (error) {
       console.error("Error fetching admin data:", error);
     } finally {
@@ -265,8 +267,11 @@ export default function AdminPage() {
 
     // 2. Prepare Votes (Sessions) Data
     const votesSheetData = votesData.map((session, index) => {
-      // Format votes details
-      const votesDetail = session.votes?.map((v) => `${v.category_name}: ${v.nominee?.user_name} (${v.nominee?.role})`).join(";\n");
+      // Format votes details with predicted count
+      const votesDetail = session.votes?.map((v) => {
+        const predictedText = v.predicted_count > 0 ? ` [Dự đoán: ${v.predicted_count} người]` : "";
+        return `${v.category_name}: ${v.nominee?.user_name} (${v.nominee?.role})${predictedText}`;
+      }).join(";\n");
 
       return {
         STT: index + 1,
@@ -312,6 +317,39 @@ export default function AdminPage() {
     votesWorksheet["!cols"] = votesCols;
 
     XLSX.utils.book_append_sheet(workbook, votesWorksheet, "Chi tiết Phiên dự đoán");
+
+    // 3. Prepare Comments Data (sorted by nominee name)
+    const sortedComments = [...commentsData].sort((a, b) => {
+      const nameA = (a.nominee?.full_name || a.nominee?.user_name || "").toLowerCase();
+      const nameB = (b.nominee?.full_name || b.nominee?.user_name || "").toLowerCase();
+      return nameA.localeCompare(nameB, "vi");
+    });
+    const commentsSheetData = sortedComments.map((comment, index) => ({
+      STT: index + 1,
+      "Người comment": comment.commenter_name || "Ẩn danh",
+      "Email người comment": comment.commenter_email,
+      "Ẩn danh": comment.is_anonymous ? "Có" : "Không",
+      "Người được comment": comment.nominee?.full_name || comment.nominee?.user_name || "",
+      "Role": comment.nominee?.role || "",
+      "Nội dung": comment.content,
+      "Thời gian": comment.created_at ? new Date(comment.created_at).toLocaleString("vi-VN") : "",
+      "Hiển thị": comment.is_visible ? "Có" : "Không",
+    }));
+
+    const commentsWorksheet = XLSX.utils.json_to_sheet(commentsSheetData);
+    const commentsCols = [
+      { wch: 5 },  // STT
+      { wch: 25 }, // Nguoi comment
+      { wch: 30 }, // Email
+      { wch: 10 }, // An danh
+      { wch: 25 }, // Nguoi duoc comment
+      { wch: 10 }, // Role
+      { wch: 60 }, // Noi dung
+      { wch: 20 }, // Thoi gian
+      { wch: 10 }, // Hien thi
+    ];
+    commentsWorksheet["!cols"] = commentsCols;
+    XLSX.utils.book_append_sheet(workbook, commentsWorksheet, "Danh sách Comments");
 
     // Generate filename with timestamp
     const dateStr = new Date().toISOString().slice(0, 10);

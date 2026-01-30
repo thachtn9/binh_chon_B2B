@@ -1101,6 +1101,47 @@ export async function fetchAllComments() {
 }
 
 /**
+ * Lấy tất cả comments cho Admin (bao gồm thông tin nominee và commenter đầy đủ)
+ */
+export async function fetchAllCommentsForAdmin() {
+  if (!supabase) {
+    return [];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("comments")
+      .select(`
+        id,
+        content,
+        commenter_email,
+        commenter_name,
+        is_anonymous,
+        is_visible,
+        created_at,
+        nominee:nominee_id (
+          id,
+          user_name,
+          full_name,
+          email,
+          role
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching all comments for admin:", error);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.error("Error fetching all comments for admin:", err);
+    return [];
+  }
+}
+
+/**
  * Thêm comment mới
  * @param {boolean} isAnonymous - Nếu true, comment sẽ được hiển thị ẩn danh
  */

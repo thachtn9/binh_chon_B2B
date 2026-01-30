@@ -64,8 +64,8 @@ const BANK_CONFIG = {
 function QRDonateModal({ isOpen, onClose, user }) {
   if (!isOpen) return null;
 
-  const username = user?.email?.split("@")[0] || "Anonymous";
-  const transferContent = `${username} Tai tro YEP 2025`;
+  const username = user?.email?.split("@")[0] || "";
+  const transferContent = username ? `${username} Tai tro YEP 2025` : "Tai tro YEP 2025";
   const qrUrl = `https://img.vietqr.io/image/${BANK_CONFIG.BANK_ID}-${BANK_CONFIG.ACCOUNT_NO}-compact2.jpg?amount=0&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(BANK_CONFIG.ACCOUNT_NAME)}`;
 
   const handleCopyAccount = () => {
@@ -488,8 +488,8 @@ export default function HomePage() {
                 <p className="yeb-subtitle">Tổng tiền tài trợ cho YEP</p>
                 <div className="yeb-amount">{yebLoading ? <span className="yeb-loading">Đang tải...</span> : <span className="yeb-value">{formatCurrency(yebTotal)}</span>}</div>
                 <div className="yeb-donate-cta">
-                  <button className="yeb-donate-btn" onClick={() => (user ? setIsQRModalOpen(true) : signInWithGoogle())}>
-                    <span>❤️</span> {user ? "Tài trợ ngay" : "Đăng nhập để tài trợ"}
+                  <button className="yeb-donate-btn" onClick={() => setIsQRModalOpen(true)}>
+                    <span>❤️</span> Tài trợ ngay
                   </button>
                 </div>
               </div>
