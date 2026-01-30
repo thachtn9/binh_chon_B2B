@@ -336,6 +336,89 @@ export async function submitVotesToDB(voterId, voterEmail, voterName, votes, tot
 }
 
 /**
+ * Submit a single vote directly to DB
+ * @param {string} voterId - UUID of the voter
+ * @param {string} voterEmail - Email of the voter
+ * @param {string} voterName - Name of the voter
+ * @param {Object} vote - Vote data { category_id, category_name, nominee_id, predicted_count }
+ * @returns {Object} - The created vote record
+ */
+export async function submitSingleVoteToDB(voterId, voterEmail, voterName, vote) {
+  if (!supabase) {
+    throw new Error("Demo mode: Votes saved to localStorage only");
+  }
+
+  // Find or create a vote session for this user (use existing open session or create new one)
+  let session;
+
+  // Try to find an existing session from today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const { data: existingSession, error: findError } = await supabase
+    .from("vote_sessions")
+    .select("*")
+    .eq("voter_id", voterId)
+    .gte("created_at", today.toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingSession) {
+    session = existingSession;
+    // Update session's total_categories
+    const { error: updateError } = await supabase
+      .from("vote_sessions")
+      .update({ total_categories: session.total_categories + 1 })
+      .eq("id", session.id);
+
+    if (updateError) {
+      console.error("Failed to update session:", updateError);
+    }
+  } else {
+    // Create new session
+    const { data: newSession, error: sessionError } = await supabase
+      .from("vote_sessions")
+      .insert({
+        voter_id: voterId,
+        voter_email: voterEmail,
+        voter_name: voterName,
+        total_categories: 1,
+        total_amount: 0,
+      })
+      .select()
+      .single();
+
+    if (sessionError) {
+      throw new Error(`Failed to create vote session: ${sessionError.message}`);
+    }
+    session = newSession;
+  }
+
+  // Insert the vote
+  const { data: voteRecord, error: voteError } = await supabase
+    .from("votes")
+    .insert({
+      session_id: session.id,
+      voter_id: voterId,
+      voter_email: voterEmail,
+      category_id: vote.category_id,
+      category_name: vote.category_name,
+      nominee_id: vote.nominee_id,
+      predicted_count: vote.predicted_count || 0,
+      amount: 0,
+    })
+    .select()
+    .single();
+
+  if (voteError) {
+    throw new Error(`Failed to save vote: ${voteError.message}`);
+  }
+
+  return { session, vote: voteRecord };
+}
+
+/**
  * Delete existing vote for a specific category
  * Used when user wants to re-vote for a category
  * @param {string} voterId - UUID of the voter
@@ -584,7 +667,7 @@ export async function getAllUsersForAdmin() {
     return [];
   }
 
-  const { data, error } = await supabase.from("users").select("id, user_name, full_name, email, role, is_admin, url_avatar, created_at").order("role").order("user_name");
+  const { data, error } = await supabase.from("users").select("id, user_name, full_name, email, role, is_admin, url_avatar, description, created_at").order("role").order("user_name");
 
   if (error) {
     console.error("Error fetching users for admin:", error);
@@ -608,6 +691,37 @@ export async function updateUserAdminStatus(userId, isAdmin) {
 
   if (error) {
     throw new Error(`Failed to update admin status: ${error.message}`);
+  }
+
+  return data;
+}
+
+/**
+ * Update user profile
+ * @param {string} userId - UUID of the user
+ * @param {Object} profileData - Profile data to update (full_name, user_name, url_avatar, description)
+ */
+export async function updateUserProfile(userId, profileData) {
+  if (!supabase) {
+    throw new Error("Demo mode: Cannot update user profile");
+  }
+
+  const { full_name, user_name, url_avatar, description } = profileData;
+
+  const { data, error } = await supabase
+    .from("users")
+    .update({
+      full_name,
+      user_name,
+      url_avatar,
+      description
+    })
+    .eq("id", userId)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to update user profile: ${error.message}`);
   }
 
   return data;
@@ -1321,4 +1435,126 @@ async function fetchYEBFromPublicSheet(sheetId) {
     console.error("Error fetching from public sheet:", err);
     return null;
   }
+}
+
+// =============================================
+// AVATAR BULK UPDATE API - Cập nhật avatar hàng loạt
+// =============================================
+
+/**
+ * Fetch participants from FPT Chat API
+ * @param {string} token - FPT Chat Bearer token
+ * @returns {Array} - Array of participants with username and avatarUrl
+ */
+export async function fetchFPTChatParticipants(token) {
+  try {
+    const groupId = "686c956d28f4793125708f8d";
+    const response = await fetch(
+      `https://api-chat.fpt.com/group-management/group/${groupId}/participant?limit=500&page=1`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.data || [];
+  } catch (error) {
+    console.error("Lỗi khi gọi FPT Chat API:", error);
+    throw error;
+  }
+}
+
+/**
+ * Bulk update user avatars based on FPT Chat participants
+ * @param {Array} participants - Array of FPT Chat participants with username and avatarUrl
+ * @param {Function} onProgress - Optional callback for progress updates
+ * @returns {Object} - { updated: number, matched: number, errors: Array }
+ */
+export async function bulkUpdateUserAvatars(participants, onProgress) {
+  if (!supabase) {
+    throw new Error("Demo mode: Cannot update avatars");
+  }
+
+  const results = {
+    updated: 0,
+    matched: 0,
+    skipped: 0,
+    errors: [],
+    details: []
+  };
+
+  // Filter participants that have both avatarUrl and username
+  const validParticipants = participants.filter(p => p.avatarUrl && p.username);
+  const total = validParticipants.length;
+
+  for (let i = 0; i < validParticipants.length; i++) {
+    const participant = validParticipants[i];
+
+    // Report progress
+    if (onProgress) {
+      onProgress({
+        current: i + 1,
+        total: total,
+        currentUser: participant.username
+      });
+    }
+
+    try {
+      // Find user by username (user_name field in database)
+      const { data: existingUser, error: findError } = await supabase
+        .from("users")
+        .select("id, user_name, url_avatar")
+        .eq("user_name", participant.username)
+        .single();
+
+      if (findError || !existingUser) {
+        // Try to match by email prefix or other fields
+        continue;
+      }
+
+      results.matched++;
+
+      // Only update if avatar is different
+      if (existingUser.url_avatar !== participant.avatarUrl) {
+        const { error: updateError } = await supabase
+          .from("users")
+          .update({ url_avatar: participant.avatarUrl })
+          .eq("id", existingUser.id);
+
+        if (updateError) {
+          results.errors.push({
+            username: participant.username,
+            error: updateError.message
+          });
+        } else {
+          results.updated++;
+          results.details.push({
+            username: participant.username,
+            oldAvatar: existingUser.url_avatar,
+            newAvatar: participant.avatarUrl
+          });
+        }
+      } else {
+        results.skipped++;
+      }
+    } catch (err) {
+      results.errors.push({
+        username: participant.username,
+        error: err.message
+      });
+    }
+  }
+
+  // Clear nominees cache to refresh data
+  clearNomineesCache();
+
+  return results;
 }

@@ -1,5 +1,19 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { likeNominee } from "../lib/supabase";
+
+// Các placeholder gợi mở cho comment input
+const getCommentPlaceholders = (name) => [
+  `Hãy gửi đôi lời đến ${name} nhé! 💬`,
+  `Chia sẻ điều bạn ấn tượng về ${name}...`,
+  `${name} có gì khiến bạn ngưỡng mộ?`,
+  `Gửi lời động viên đến ${name} nào! ✨`,
+  `Bạn muốn nói gì với ${name}?`,
+  `Kể về kỷ niệm của bạn với ${name}...`,
+  `${name} đã truyền cảm hứng cho bạn thế nào?`,
+  `Điều gì làm ${name} trở nên đặc biệt?`,
+  `Hãy để lại lời nhắn cho ${name}! 🌟`,
+  `Chia sẻ cảm nhận của bạn về ${name}...`,
+];
 
 // Debounce hook for like button
 function useDebounce(callback, delay) {
@@ -43,15 +57,25 @@ const roleBadgeColors = {
   PROJECT: { bg: "#f59e0b", label: "Dự án" },
 };
 
-export default function NomineeDetailModal({ isOpen, onClose, nominee, comments = [], onAddComment, user, defaultAnonymous = false, isLoading = false }) {
+export default function NomineeDetailModal({ isOpen, onClose, nominee, comments = [], onAddComment, onLikeChange, user, defaultAnonymous = false, isLoading = false }) {
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(true);
   const [likeCount, setLikeCount] = useState(0);
   const [isLiking, setIsLiking] = useState(false);
   const [likeAnimation, setLikeAnimation] = useState(false);
+  const [flyingHearts, setFlyingHearts] = useState([]);
   const commentsEndRef = useRef(null);
   const inputRef = useRef(null);
+  const heartIdRef = useRef(0);
+
+  // Random placeholder gợi mở - chọn ngẫu nhiên mỗi lần mở modal
+  const commentPlaceholder = useMemo(() => {
+    if (!nominee) return "Viết bình luận của bạn...";
+    const firstName = (nominee.full_name || nominee.user_name || "").split(" ").pop();
+    const placeholders = getCommentPlaceholders(firstName);
+    return placeholders[Math.floor(Math.random() * placeholders.length)];
+  }, [nominee, isOpen]);
 
   // Initialize like count from nominee data
   useEffect(() => {
@@ -134,12 +158,46 @@ export default function NomineeDetailModal({ isOpen, onClose, nominee, comments 
 
   const [debouncedLike] = useDebounce(submitLikes, 300);
 
+  // Create flying hearts effect
+  const createFlyingHearts = () => {
+    const heartEmojis = ["❤️", "💕", "💖", "💗", "💓", "💞"];
+    const newHearts = [];
+    const numHearts = 5 + Math.floor(Math.random() * 4); // 5-8 hearts
+
+    for (let i = 0; i < numHearts; i++) {
+      heartIdRef.current += 1;
+      newHearts.push({
+        id: heartIdRef.current,
+        emoji: heartEmojis[Math.floor(Math.random() * heartEmojis.length)],
+        left: 30 + Math.random() * 40, // 30-70% from left
+        animationDuration: 1 + Math.random() * 0.5, // 1-1.5s
+        delay: Math.random() * 0.2, // 0-0.2s delay
+        size: 0.8 + Math.random() * 0.6, // 0.8-1.4 scale
+      });
+    }
+
+    setFlyingHearts((prev) => [...prev, ...newHearts]);
+
+    // Remove hearts after animation completes
+    setTimeout(() => {
+      setFlyingHearts((prev) => prev.filter((h) => !newHearts.find((nh) => nh.id === h.id)));
+    }, 2000);
+  };
+
   // Handle like action with debounce
   const handleLike = () => {
     // Immediately update UI
     setLikeCount((prev) => prev + 1);
     setLikeAnimation(true);
     setTimeout(() => setLikeAnimation(false), 300);
+
+    // Create flying hearts effect
+    createFlyingHearts();
+
+    // Notify parent to update nominee's like count
+    if (onLikeChange && nominee?.id) {
+      onLikeChange(nominee.id);
+    }
 
     // Debounce the API call
     debouncedLike();
@@ -167,7 +225,7 @@ export default function NomineeDetailModal({ isOpen, onClose, nominee, comments 
         <div className="nominee-detail-left">
           <div className="nominee-detail-comments">
             <div className="nominee-detail-comments-header">
-              <span>💬 Bình luận ({comments.length})</span>
+              <span>💬 Chia sẻ ({comments.length})</span>
             </div>
 
             {/* Comments List - sorted oldest first (newest at bottom) */}
@@ -175,8 +233,8 @@ export default function NomineeDetailModal({ isOpen, onClose, nominee, comments 
               {sortedComments.length === 0 ? (
                 <div className="nominee-detail-no-comments">
                   <div className="no-comments-icon">💬</div>
-                  <p>Chưa có bình luận nào</p>
-                  <p className="no-comments-hint">Hãy là người đầu tiên gửi bình luận! 🎉</p>
+                  <p>Chưa có chia sẻ nào</p>
+                  <p className="no-comments-hint">Hãy là người đầu tiên gửi chia sẻ! 🎉</p>
                 </div>
               ) : (
                 <>
@@ -207,7 +265,7 @@ export default function NomineeDetailModal({ isOpen, onClose, nominee, comments 
                 <form onSubmit={handleSubmitComment} className="nominee-detail-comment-form">
                   <img src={isAnonymous ? `https://ui-avatars.com/api/?name=A&size=40&background=6b7280&color=fff` : user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.user_metadata?.full_name || user.email)}&size=40&background=6366f1&color=fff`} alt="Your avatar" className="nominee-detail-form-avatar" />
                   <div className="nominee-detail-input-wrapper">
-                    <input ref={inputRef} type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Viết bình luận của bạn..." className="nominee-detail-comment-input" disabled={isSubmitting} />
+                    <input ref={inputRef} type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder={commentPlaceholder} className="nominee-detail-comment-input" disabled={isSubmitting} />
                     <button type="submit" className="nominee-detail-comment-btn" disabled={!newComment.trim() || isSubmitting}>
                       {isSubmitting ? <span className="btn-loading">⏳</span> : "Gửi"}
                     </button>
@@ -244,10 +302,29 @@ export default function NomineeDetailModal({ isOpen, onClose, nominee, comments 
 
             {/* Like button and stats */}
             <div className="nominee-detail-stats">
-              <button className={`nominee-detail-like-btn ${likeAnimation ? "like-animate" : ""}`} onClick={handleLike} disabled={isLiking} title="Thích profile này">
-                <span className="like-icon">❤️</span>
-                <span className="like-count">{likeCount}</span>
-              </button>
+              <div className="like-btn-wrapper">
+                <button className={`nominee-detail-like-btn ${likeAnimation ? "like-animate" : ""}`} onClick={handleLike} disabled={isLiking} title="Thích profile này">
+                  <span className="like-icon">❤️</span>
+                  <span className="like-count">{likeCount}</span>
+                </button>
+                {/* Flying hearts animation */}
+                <div className="flying-hearts-container">
+                  {flyingHearts.map((heart) => (
+                    <span
+                      key={heart.id}
+                      className="flying-heart"
+                      style={{
+                        left: `${heart.left}%`,
+                        animationDuration: `${heart.animationDuration}s`,
+                        animationDelay: `${heart.delay}s`,
+                        fontSize: `${heart.size}rem`,
+                      }}
+                    >
+                      {heart.emoji}
+                    </span>
+                  ))}
+                </div>
+              </div>
               <div className="nominee-detail-stat">
                 <span className="stat-value">{comments.length}</span>
                 <span className="stat-label">Bình luận</span>

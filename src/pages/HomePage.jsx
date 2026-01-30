@@ -53,6 +53,68 @@ function shuffleArray(array) {
   return shuffled;
 }
 
+// Bank config for VietQR
+const BANK_CONFIG = {
+  BANK_ID: "TPBANK",
+  ACCOUNT_NO: "55639888888",
+  ACCOUNT_NAME: "CHUNG HOANG LIEM",
+};
+
+// QR Modal Component
+function QRDonateModal({ isOpen, onClose, user }) {
+  if (!isOpen) return null;
+
+  const username = user?.email?.split("@")[0] || "Anonymous";
+  const transferContent = `${username} Tai tro YEB 2025`;
+  const qrUrl = `https://img.vietqr.io/image/${BANK_CONFIG.BANK_ID}-${BANK_CONFIG.ACCOUNT_NO}-compact2.jpg?amount=0&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(BANK_CONFIG.ACCOUNT_NAME)}`;
+
+  const handleCopyAccount = () => {
+    navigator.clipboard.writeText(BANK_CONFIG.ACCOUNT_NO);
+    alert("Đã copy số tài khoản!");
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="qr-modal-content" onClick={(e) => e.stopPropagation()}>
+        <button className="modal-close-btn" onClick={onClose}>
+          ×
+        </button>
+        <h2 className="qr-modal-title">🎊 Tài trợ YEB B2B 2025</h2>
+
+        <div className="qr-code-container">
+          <img src={qrUrl} alt="QR Code chuyển khoản" className="qr-code-image" />
+        </div>
+
+        <div className="bank-info">
+          <div className="bank-info-row">
+            <span className="bank-label">Ngân hàng:</span>
+            <span className="bank-value">TPBank</span>
+          </div>
+          <div className="bank-info-row">
+            <span className="bank-label">Số tài khoản:</span>
+            <span className="bank-value">
+              {BANK_CONFIG.ACCOUNT_NO}
+              <button className="copy-btn" onClick={handleCopyAccount} title="Copy số tài khoản">
+                📋
+              </button>
+            </span>
+          </div>
+          <div className="bank-info-row">
+            <span className="bank-label">Chủ tài khoản:</span>
+            <span className="bank-value">{BANK_CONFIG.ACCOUNT_NAME}</span>
+          </div>
+          <div className="bank-info-row">
+            <span className="bank-label">Nội dung CK:</span>
+            <span className="bank-value highlight">{transferContent}</span>
+          </div>
+        </div>
+
+        <p className="qr-note">Quét mã QR hoặc chuyển khoản theo thông tin trên</p>
+      </div>
+    </div>
+  );
+}
+
 // Role badge colors
 const roleBadgeColors = {
   PM: { bg: "#3b82f6", label: "Project Manager" },
@@ -61,10 +123,10 @@ const roleBadgeColors = {
   PROJECT: { bg: "#f59e0b", label: "Dự án" },
 };
 
-// NomineeCard Component - Card với 3 bình luận, click để mở modal
+// NomineeCard Component - Card với 3 Chia sẻ, click để mở modal
 function NomineeCard({ nominee, comments, onClick }) {
   const roleInfo = roleBadgeColors[nominee.role] || { bg: "#6b7280", label: nominee.role };
-  const previewComments = comments.slice(0, 3); // Lấy 3 bình luận đầu tiên
+  const previewComments = comments.slice(0, 3); // Lấy 3 Chia sẻ đầu tiên
 
   return (
     <div className="nominee-card-v2 nominee-card-clickable" id={`nominee-${nominee.id}`} onClick={() => onClick(nominee)} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && onClick(nominee)}>
@@ -83,17 +145,17 @@ function NomineeCard({ nominee, comments, onClick }) {
         </div>
       </div>
 
-      {/* Preview Comments - 3 bình luận đầu */}
+      {/* Preview Comments - 3 Chia sẻ đầu */}
       <div className="nominee-card-comments-preview">
         <div className="comments-header-compact">
-          <span>💬 Bình luận ({comments.length})</span>
+          <span>💬 Chia sẻ ({comments.length})</span>
           <span className="like-count-compact">❤️ {nominee.like_count || 0}</span>
         </div>
 
         <div className="comments-list-compact">
           {previewComments.length === 0 ? (
             <div className="no-comments-compact">
-              <p>Chưa có bình luận nào</p>
+              <p>Chưa có chia sẻ nào</p>
             </div>
           ) : (
             previewComments.map((comment) => (
@@ -115,7 +177,7 @@ function NomineeCard({ nominee, comments, onClick }) {
 
       {/* Footer with click hint */}
       <div className="nominee-card-footer">
-        <div className="nominee-card-click-hint">Nhấn để xem chi tiết & bình luận →</div>
+        <div className="nominee-card-click-hint">Nhấn để xem chi tiết →</div>
       </div>
     </div>
   );
@@ -170,6 +232,7 @@ export default function HomePage() {
   // YEB sponsorship state
   const [yebTotal, setYebTotal] = useState(null);
   const [yebLoading, setYebLoading] = useState(true);
+  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
 
   // Lazy load intersection observer
   const { visibleItems, observe } = useIntersectionObserver();
@@ -324,6 +387,15 @@ export default function HomePage() {
     }
   };
 
+  // Handle like change from modal - update nominees array
+  const handleLikeChange = (nomineeId) => {
+    setNominees((prev) =>
+      prev.map((n) =>
+        n.id === nomineeId ? { ...n, like_count: (n.like_count || 0) + 1 } : n
+      )
+    );
+  };
+
   if (loading) {
     return (
       <main className="landing-page">
@@ -348,14 +420,9 @@ export default function HomePage() {
                 <p className="yeb-subtitle">Tổng tiền tài trợ cho YEB</p>
                 <div className="yeb-amount">{yebLoading ? <span className="yeb-loading">Đang tải...</span> : <span className="yeb-value">{formatCurrency(yebTotal)}</span>}</div>
                 <div className="yeb-donate-cta">
-                  <a
-                    href="https://docs.google.com/spreadsheets/d/17p0Wg81ZQ4mFvmArnAugY_q1U8w6dOG-Pt__pYeUC38/edit?gid=88569587"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="yeb-donate-btn"
-                  >
+                  <button className="yeb-donate-btn" onClick={() => setIsQRModalOpen(true)}>
                     <span>❤️</span> Tài trợ ngay
-                  </a>
+                  </button>
                 </div>
               </div>
               <img src="/than_tai.png" alt="Thần Tài" className="yeb-thantai-img yeb-thantai-flip" />
@@ -405,11 +472,7 @@ export default function HomePage() {
                   const delayIndex = index % 9; // Reset delay sau mỗi 9 cards
 
                   return (
-                    <div
-                      key={nominee.id}
-                      ref={(el) => observe(el, cardId)}
-                      className={`nominee-card-wrapper ${isVisible ? "is-visible" : ""} delay-${delayIndex}`}
-                    >
+                    <div key={nominee.id} ref={(el) => observe(el, cardId)} className={`nominee-card-wrapper ${isVisible ? "is-visible" : ""} delay-${delayIndex}`}>
                       <NomineeCard nominee={nominee} comments={comments[nominee.id] || []} onClick={handleOpenModal} />
                     </div>
                   );
@@ -447,7 +510,10 @@ export default function HomePage() {
       </section>
 
       {/* Nominee Detail Modal */}
-      <NomineeDetailModal isOpen={isModalOpen} onClose={handleCloseModal} nominee={selectedNominee} comments={modalComments} onAddComment={handleAddComment} user={user} defaultAnonymous={defaultAnonymous} isLoading={isLoadingModal} />
+      <NomineeDetailModal isOpen={isModalOpen} onClose={handleCloseModal} nominee={selectedNominee} comments={modalComments} onAddComment={handleAddComment} onLikeChange={handleLikeChange} user={user} defaultAnonymous={defaultAnonymous} isLoading={isLoadingModal} />
+
+      {/* QR Donate Modal */}
+      <QRDonateModal isOpen={isQRModalOpen} onClose={() => setIsQRModalOpen(false)} user={user} />
     </main>
   );
 }

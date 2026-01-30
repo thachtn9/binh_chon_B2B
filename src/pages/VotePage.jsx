@@ -2,13 +2,12 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useVote } from "../context/VoteContext";
 import NomineeCard from "../components/NomineeCard";
-import VoteSummary from "../components/VoteSummary";
 import PredictionModal from "../components/PredictionModal";
 import { categories, fetchNomineesForCategory } from "../lib/supabase";
 
 export default function VotePage() {
   const { user, signInWithGoogle, canVote, permissionMessage, permissionLoading, voteUser } = useAuth();
-  const { selectedCount, TOTAL_CATEGORIES, selections, isVotingOpen, votingStatus, loadUserHistory, selectNominee, getNomineeById, getUserExistingVoteForCategory, deleteExistingVoteForCategory } = useVote();
+  const { totalCompletedCount, TOTAL_CATEGORIES, selections, isVotingOpen, votingStatus, loadUserHistory, getNomineeById, getUserExistingVoteForCategory, deleteExistingVoteForCategory, submitSingleVote } = useVote();
   const [activeCategory, setActiveCategory] = useState(categories[0]);
   const [activeSubCategory, setActiveSubCategory] = useState(categories[0].sub_categories ? categories[0].sub_categories[0].id : null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -57,7 +56,7 @@ export default function VotePage() {
     setModalOpen(true);
   };
 
-  // Handle confirm from modal - xóa vote cũ (nếu có) rồi lưu vote mới
+  // Handle confirm from modal - xóa vote cũ (nếu có) rồi lưu vote mới trực tiếp vào DB
   const handlePredictionConfirm = async (predictedCount) => {
     if (selectedNominee && selectedCategoryId) {
       // Kiểm tra xem đã vote cho category này chưa
@@ -72,7 +71,17 @@ export default function VotePage() {
           return;
         }
       }
-      selectNominee(selectedCategoryId, selectedNominee.id, predictedCount);
+      // Lưu trực tiếp vào DB
+      try {
+        await submitSingleVote(user, voteUser, selectedCategoryId, selectedNominee.id, predictedCount, canVote);
+        // Phát âm thanh khi lưu thành công
+        const audio = new Audio("/sound/check.mp3");
+        audio.volume = 0.4;
+        audio.play().catch((err) => console.log("Audio play failed:", err));
+      } catch (error) {
+        alert(error.message || "Lỗi khi lưu dự đoán. Vui lòng thử lại.");
+        console.error("Error submitting vote:", error);
+      }
     }
   };
 
@@ -176,10 +185,10 @@ export default function VotePage() {
           {/* Progress Bar */}
           <div className="vote-progress">
             <div className="vote-progress-bar">
-              <div className="vote-progress-fill" style={{ width: `${(selectedCount / TOTAL_CATEGORIES) * 100}%` }} />
+              <div className="vote-progress-fill" style={{ width: `${(totalCompletedCount / TOTAL_CATEGORIES) * 100}%` }} />
             </div>
             <span className="vote-progress-text">
-              {selectedCount}/{TOTAL_CATEGORIES} hạng mục đã chọn
+              {totalCompletedCount}/{TOTAL_CATEGORIES} hạng mục đã chọn
             </span>
           </div>
         </div>
@@ -343,14 +352,29 @@ export default function VotePage() {
         </section>
       </div>
 
-      {/* Vote Summary - floating bottom bar */}
-      <VoteSummary />
-
       {/* Prediction Modal */}
       <PredictionModal isOpen={modalOpen} onClose={() => setModalOpen(false)} nominee={selectedNominee} categoryName={selectedCategoryName} onConfirm={handlePredictionConfirm} existingSelection={getExistingSelection()} />
 
       {/* Spacer for fixed bottom bar */}
       <div style={{ height: "100px" }} />
+
+      {/* Thể lệ dự đoán - gần footer */}
+      <div className="vote-rules-section container">
+        <div className="vote-rules-card">
+          <div className="vote-rules-header">
+            <span className="vote-rules-icon">📋</span>
+            <h3 className="vote-rules-title">Thể lệ dự đoán</h3>
+          </div>
+          <ul className="vote-rules-list">
+            <li>
+              Mỗi hạng mục chỉ được chọn <strong>1 ứng viên</strong>
+            </li>
+            <li>Dự đoán số người chọn giống bạn</li>
+            <li>Có thể thay đổi lựa chọn trước khi hết hạn</li>
+            <li>Người dự đoán chính xác và gần đúng nhất sẽ nhận giải thưởng theo từng hạng mục </li>
+          </ul>
+        </div>
+      </div>
     </main>
   );
 }

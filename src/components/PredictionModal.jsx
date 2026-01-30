@@ -146,7 +146,6 @@ function PredictionModalContent({
         <div className="prediction-modal-message">
           <p className="prediction-modal-hint">Mỗi hạng mục chỉ được chọn 1 người. Bạn có thể thay đổi bất kỳ lúc nào trước khi kết thúc dự đoán.</p>
         </div>
-
         {/* Actions */}
         <div className="prediction-modal-actions">
           <button className="btn btn-secondary" onClick={onClose} disabled={isSubmitting}>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useVote } from "../context/VoteContext";
 import { formatDate } from "../lib/supabase";
@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 
 export default function HistoryPage() {
   const { user, signInWithGoogle, voteUser } = useAuth();
-  const { voteHistory, loadUserHistory } = useVote();
+  const { voteHistory, loadUserHistory, TOTAL_CATEGORIES } = useVote();
   const [historyLoading, setHistoryLoading] = useState(false);
 
   // Auto-load user history from database when page loads
@@ -21,8 +21,28 @@ export default function HistoryPage() {
     loadHistory();
   }, [voteUser?.id, loadUserHistory]);
 
-  // Use voteHistory directly - loadUserHistory already filters for current user
-  const userHistory = voteHistory;
+  // Transform voteHistory to get unique votes per category (latest vote for each category)
+  const categoryVotes = useMemo(() => {
+    const votesMap = new Map();
+
+    // Go through all sessions and votes, keep the latest vote for each category
+    voteHistory.forEach((session) => {
+      session.votes?.forEach((vote) => {
+        const existingVote = votesMap.get(vote.category_id);
+        const voteTime = new Date(session.created_at);
+
+        if (!existingVote || new Date(existingVote.voted_at) < voteTime) {
+          votesMap.set(vote.category_id, {
+            ...vote,
+            voted_at: session.created_at,
+          });
+        }
+      });
+    });
+
+    // Convert to array and sort by voted_at (newest first)
+    return Array.from(votesMap.values()).sort((a, b) => new Date(b.voted_at) - new Date(a.voted_at));
+  }, [voteHistory]);
 
   if (!user) {
     return (
@@ -47,7 +67,7 @@ export default function HistoryPage() {
           <h1 className="hero-title" style={{ fontSize: "2.5rem" }}>
             📜 Lịch Sử Dự Đoán
           </h1>
-          <p className="hero-subtitle">Theo dõi tất cả các lượt dự đoán của bạn</p>
+          <p className="hero-subtitle">Theo dõi các hạng mục bạn đã dự đoán</p>
         </div>
       </section>
 
@@ -56,20 +76,22 @@ export default function HistoryPage() {
           {/* User Stats */}
           <div className="history-stats">
             <div className="stat-card">
-              <div className="stat-value">{userHistory.length}</div>
-              <div className="stat-label">Lượt dự đoán</div>
+              <div className="stat-value">
+                {categoryVotes.length}/{TOTAL_CATEGORIES}
+              </div>
+              <div className="stat-label">Hạng mục đã dự đoán</div>
             </div>
           </div>
 
           {/* History List */}
-          <h3 style={{ marginBottom: "1.5rem" }}>Chi tiết bình chọn</h3>
+          <h3 style={{ marginBottom: "1.5rem" }}>Chi tiết dự đoán theo hạng mục</h3>
 
           {historyLoading ? (
             <div className="empty-state glass-card">
               <div className="empty-state-icon">⏳</div>
               <h3>Đang tải lịch sử...</h3>
             </div>
-          ) : userHistory.length === 0 ? (
+          ) : categoryVotes.length === 0 ? (
             <div className="empty-state glass-card">
               <div className="empty-state-icon">📭</div>
               <h3>Chưa có lịch sử dự đoán</h3>
@@ -80,34 +102,33 @@ export default function HistoryPage() {
             </div>
           ) : (
             <div className="history-list">
-              {userHistory.map((session) => (
-                <div key={session.id} className="history-item">
+              {categoryVotes.map((vote) => (
+                <div key={vote.category_id} className="history-item">
                   <div className="history-item-header">
-                    <span className="history-date">📅 {formatDate(session.created_at)}</span>
+                    <span className="history-category-title">
+                      <span>{vote.category_icon}</span>
+                      <span style={{ fontWeight: 600 }}>{vote.category_name}</span>
+                    </span>
+                    <span className="history-date">📅 {formatDate(vote.voted_at)}</span>
                   </div>
-                  <div className="history-votes">
-                    {session.votes.map((vote, index) => (
-                      <span key={index} className="history-vote-tag">
-                        <span>{vote.category_icon}</span>
-                        <span style={{ fontWeight: 500 }}>{vote.category_name}</span>
-                        <span style={{ color: "var(--text-muted)" }}>→</span>
-                        <img
-                          src={vote.nominee_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(vote.nominee_name || "User")}&background=random&size=40`}
-                          alt={vote.nominee_name}
-                          style={{ width: "20px", height: "20px", borderRadius: "50%" }}
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(vote.nominee_name || "User")}&background=random&size=40`;
-                          }}
-                        />
-                        <span>{vote.nominee_name}</span>
-                        {vote.predicted_count > 0 && (
-                          <span className="predicted-count-badge" title="Số người dự đoán giống bạn">
-                            👥 {vote.predicted_count}
-                          </span>
-                        )}
+                  <div className="history-vote-detail">
+                    <div className="history-nominee-info">
+                      <img
+                        src={vote.nominee_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(vote.nominee_name || "User")}&background=random&size=40`}
+                        alt={vote.nominee_name}
+                        className="history-nominee-avatar"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(vote.nominee_name || "User")}&background=random&size=40`;
+                        }}
+                      />
+                      <span className="history-nominee-name">{vote.nominee_name}</span>
+                    </div>
+                    {vote.predicted_count > 0 && (
+                      <span className="predicted-count-badge" title="Số người dự đoán giống bạn">
+                        👥 Dự đoán: {vote.predicted_count} người
                       </span>
-                    ))}
+                    )}
                   </div>
                 </div>
               ))}
@@ -117,7 +138,7 @@ export default function HistoryPage() {
           {/* Action */}
           <div style={{ textAlign: "center", marginTop: "2rem" }}>
             <Link to="/vote" className="btn btn-gold btn-lg">
-              🗳️ Dự đoán thêm
+              🗳️ {categoryVotes.length < TOTAL_CATEGORIES ? "Tiếp tục dự đoán" : "Thay đổi dự đoán"}
             </Link>
           </div>
         </div>

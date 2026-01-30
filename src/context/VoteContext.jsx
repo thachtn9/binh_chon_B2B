@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { categories, sampleNominees, defaultSettings, formatCurrency, isVotingOpen, getVotingStatusMessage, getSettings, fetchNominees, getNomineesForCategory, getNomineeById, submitVotesToDB, getUserVoteHistory, getTotalPrize, isDemoMode, deleteVoteForCategory } from "../lib/supabase";
+import { categories, sampleNominees, defaultSettings, formatCurrency, isVotingOpen, getVotingStatusMessage, getSettings, fetchNominees, getNomineesForCategory, getNomineeById, submitVotesToDB, submitSingleVoteToDB, getUserVoteHistory, getTotalPrize, isDemoMode, deleteVoteForCategory } from "../lib/supabase";
 
 const VoteContext = createContext({});
 
@@ -181,6 +181,29 @@ export function VoteProvider({ children }) {
     });
     return remaining;
   };
+
+  // Get count of all completed selections (new selections + history, without double counting)
+  const getTotalCompletedCount = useCallback(() => {
+    const completedIds = new Set();
+
+    // Add new selections
+    Object.keys(selections).forEach(id => {
+      if (selections[id]?.nomineeId) {
+        completedIds.add(id);
+      }
+    });
+
+    // Add from history
+    voteHistory.forEach(session => {
+      session.votes?.forEach(vote => {
+        if (vote.category_id) {
+          completedIds.add(vote.category_id);
+        }
+      });
+    });
+
+    return completedIds.size;
+  }, [selections, voteHistory]);
 
   // Check if voting is currently open
   const checkVotingOpen = useCallback(() => {
@@ -415,6 +438,125 @@ export function VoteProvider({ children }) {
     [clearSelection]
   );
 
+  /**
+   * Submit a single vote directly to DB and update local state
+   * @param {Object} authUser - Auth user object
+   * @param {Object} voteUser - User from users table
+   * @param {string} categoryId - Category or sub-category ID
+   * @param {string} nomineeId - Nominee ID
+   * @param {number} predictedCount - Predicted vote count
+   * @param {boolean} canVote - Permission to vote
+   */
+  const submitSingleVote = useCallback(
+    async (authUser, voteUser, categoryId, nomineeId, predictedCount, canVote) => {
+      // Check vote permission
+      if (!canVote) {
+        throw new Error("Bạn không có quyền dự đoán. Vui lòng liên hệ Admin.");
+      }
+
+      // Check if voting is open
+      if (!isVotingOpen(settings)) {
+        const status = getVotingStatusMessage(settings);
+        throw new Error(status.message);
+      }
+
+      // Find category info
+      let categoryName = "";
+      let categoryIcon = "";
+      for (const cat of categories) {
+        if (cat.id === categoryId) {
+          categoryName = cat.name;
+          categoryIcon = cat.icon;
+          break;
+        }
+        if (cat.sub_categories) {
+          const sub = cat.sub_categories.find((s) => s.id === categoryId);
+          if (sub) {
+            categoryName = `${cat.name} - ${sub.name}`;
+            categoryIcon = cat.icon;
+            break;
+          }
+        }
+      }
+
+      const nominee = getNomineeById(nomineeId, nominees);
+      const voterName = voteUser?.user_name || authUser?.user_metadata?.full_name || "Anonymous";
+      const voterEmail = authUser?.email || "anonymous";
+      const voterId = voteUser?.id || null;
+
+      const vote = {
+        category_id: categoryId,
+        category_name: categoryName,
+        nominee_id: nomineeId,
+        predicted_count: predictedCount || 0,
+      };
+
+      // Save to database
+      if (!isDemoMode && voterId) {
+        try {
+          await submitSingleVoteToDB(voterId, voterEmail, voterName, vote);
+        } catch (dbError) {
+          console.error("Database error:", dbError);
+          throw new Error("Lỗi lưu dự đoán. Vui lòng thử lại.");
+        }
+      }
+
+      // Update local state - add to voteHistory
+      const newVote = {
+        category_id: categoryId,
+        category_name: categoryName,
+        category_icon: categoryIcon,
+        nominee_id: nomineeId,
+        nominee_name: nominee?.user_name || "Unknown",
+        nominee_avatar: nominee?.url_avatar || null,
+        predicted_count: predictedCount || 0,
+      };
+
+      // Add to voteHistory
+      setVoteHistory((prevHistory) => {
+        // Check if there's an existing session from today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const existingSessionIndex = prevHistory.findIndex((session) => {
+          const sessionDate = new Date(session.created_at);
+          sessionDate.setHours(0, 0, 0, 0);
+          return sessionDate.getTime() === today.getTime();
+        });
+
+        if (existingSessionIndex >= 0) {
+          // Add to existing session
+          const updatedHistory = [...prevHistory];
+          updatedHistory[existingSessionIndex] = {
+            ...updatedHistory[existingSessionIndex],
+            votes: [...(updatedHistory[existingSessionIndex].votes || []), newVote],
+            total_categories: (updatedHistory[existingSessionIndex].total_categories || 0) + 1,
+          };
+          return updatedHistory;
+        } else {
+          // Create new session
+          const newSession = {
+            id: Date.now().toString(),
+            voter_id: voterId,
+            voter_email: voterEmail,
+            voter_name: voterName,
+            votes: [newVote],
+            total_categories: 1,
+            total_amount: 0,
+            created_at: new Date().toISOString(),
+          };
+          return [newSession, ...prevHistory];
+        }
+      });
+
+      // Clear the selection from pending selections (since it's now saved)
+      clearSelection(categoryId);
+
+      return true;
+    },
+    [settings, nominees, clearSelection]
+  );
+
   // Load user's vote history from database
   const loadUserHistory = useCallback(async (userId) => {
     if (isDemoMode || !userId) return;
@@ -478,6 +620,7 @@ export function VoteProvider({ children }) {
     clearSelection,
     clearAllSelections,
     submitVotes,
+    submitSingleVote,
     getUserHistory,
     getUserTotalSpent,
     getUserVoteCountForNominee,
@@ -495,6 +638,7 @@ export function VoteProvider({ children }) {
 
     // Computed values
     selectedCount: Object.keys(selections).length,
+    totalCompletedCount: getTotalCompletedCount(),
     isAllSelected: isAllSelected(),
     remainingItems: getRemainingItems(),
     remainingCount: TOTAL_CATEGORIES - Object.keys(selections).length,

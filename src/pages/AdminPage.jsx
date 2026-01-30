@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { useAuth } from "../context/AuthContext";
-import { getAllVoteSessions, getVoterRankingReport, getAllUsersForAdmin, updateUserAdminStatus, formatCurrency, formatDate, findCorrectPredictionsByCategory, getNomineesForWinnerSelection, getNomineeStatistics, getSettings, updateSettings } from "../lib/supabase";
+import { getAllVoteSessions, getVoterRankingReport, getAllUsersForAdmin, updateUserAdminStatus, updateUserProfile, formatCurrency, formatDate, findCorrectPredictionsByCategory, getNomineesForWinnerSelection, getNomineeStatistics, getSettings, updateSettings, fetchFPTChatParticipants, bulkUpdateUserAvatars } from "../lib/supabase";
 import { categories } from "../config/votingConfig";
 import { useNavigate } from "react-router-dom";
 
@@ -30,6 +30,23 @@ export default function AdminPage() {
   const [topPredictors, setTopPredictors] = useState([]); // Overall top predictors
   const [isSearching, setIsSearching] = useState(false);
 
+  // Edit user modal states
+  const [editingUser, setEditingUser] = useState(null);
+  const [editUserForm, setEditUserForm] = useState({
+    full_name: "",
+    user_name: "",
+    url_avatar: "",
+    description: ""
+  });
+  const [isSavingUser, setIsSavingUser] = useState(false);
+
+  // Avatar bulk update modal states
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [avatarToken, setAvatarToken] = useState("");
+  const [isUpdatingAvatars, setIsUpdatingAvatars] = useState(false);
+  const [avatarUpdateResult, setAvatarUpdateResult] = useState(null);
+  const [avatarProgress, setAvatarProgress] = useState({ current: 0, total: 0, currentUser: "", phase: "" });
+
   useEffect(() => {
     // Redirect if not admin
     if (!loading) {
@@ -57,6 +74,115 @@ export default function AdminPage() {
     } finally {
       setIsLoadingData(false);
     }
+  };
+
+  // Open edit user modal
+  const handleOpenEditUser = (user) => {
+    setEditingUser(user);
+    setEditUserForm({
+      full_name: user.full_name || "",
+      user_name: user.user_name || "",
+      url_avatar: user.url_avatar || "",
+      description: user.description || ""
+    });
+  };
+
+  // Close edit user modal
+  const handleCloseEditUser = () => {
+    setEditingUser(null);
+    setEditUserForm({
+      full_name: "",
+      user_name: "",
+      url_avatar: "",
+      description: ""
+    });
+  };
+
+  // Save user profile
+  const handleSaveUserProfile = async () => {
+    if (!editingUser) return;
+
+    setIsSavingUser(true);
+    try {
+      await updateUserProfile(editingUser.id, editUserForm);
+      // Refresh data
+      const updatedUsers = await getAllUsersForAdmin();
+      setAdminsData(updatedUsers);
+      handleCloseEditUser();
+      alert("Cập nhật thông tin user thành công!");
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      alert("Có lỗi xảy ra khi cập nhật: " + error.message);
+    } finally {
+      setIsSavingUser(false);
+    }
+  };
+
+  // Handle bulk update avatars from FPT Chat
+  const handleBulkUpdateAvatars = async () => {
+    if (!avatarToken.trim()) {
+      alert("Vui lòng nhập FPT Chat Token!");
+      return;
+    }
+
+    setIsUpdatingAvatars(true);
+    setAvatarUpdateResult(null);
+    setAvatarProgress({ current: 0, total: 0, currentUser: "", phase: "fetching" });
+
+    try {
+      // Fetch participants from FPT Chat API
+      setAvatarProgress(prev => ({ ...prev, phase: "fetching", currentUser: "Đang lấy dữ liệu từ FPT Chat..." }));
+      const participants = await fetchFPTChatParticipants(avatarToken);
+      const withAvatar = participants.filter(p => p.avatarUrl && p.username);
+
+      if (withAvatar.length === 0) {
+        setAvatarUpdateResult({
+          success: false,
+          message: "Không tìm thấy participants có avatar từ FPT Chat API"
+        });
+        return;
+      }
+
+      // Bulk update avatars with progress callback
+      setAvatarProgress({ current: 0, total: withAvatar.length, currentUser: "", phase: "updating" });
+
+      const result = await bulkUpdateUserAvatars(participants, (progress) => {
+        setAvatarProgress(prev => ({
+          ...prev,
+          current: progress.current,
+          total: progress.total,
+          currentUser: progress.currentUser
+        }));
+      });
+
+      setAvatarProgress(prev => ({ ...prev, phase: "done" }));
+      setAvatarUpdateResult({
+        success: true,
+        totalParticipants: participants.length,
+        withAvatar: withAvatar.length,
+        ...result
+      });
+
+      // Refresh admin data
+      const updatedUsers = await getAllUsersForAdmin();
+      setAdminsData(updatedUsers);
+
+    } catch (error) {
+      console.error("Error bulk updating avatars:", error);
+      setAvatarUpdateResult({
+        success: false,
+        message: error.message
+      });
+    } finally {
+      setIsUpdatingAvatars(false);
+    }
+  };
+
+  // Close avatar modal
+  const handleCloseAvatarModal = () => {
+    setShowAvatarModal(false);
+    setAvatarToken("");
+    setAvatarUpdateResult(null);
   };
 
   const handleToggleAdmin = async (userId, currentStatus, userName) => {
@@ -376,6 +502,9 @@ export default function AdminPage() {
         <button className={`btn ${activeTab === "results" ? "btn-primary" : "btn-secondary"}`} onClick={() => setActiveTab("results")}>
           🏆 Tìm Người Đoán Đúng
         </button>
+        <button className={`btn ${activeTab === "avatars" ? "btn-primary" : "btn-secondary"}`} onClick={() => setShowAvatarModal(true)}>
+          🖼️ Cập nhật Avatar
+        </button>
         <button className="btn btn-secondary" onClick={handleExportExcel}>
           📤 Xuất Excel
         </button>
@@ -527,6 +656,7 @@ export default function AdminPage() {
                       <th>Email</th>
                       <th>Role</th>
                       <th style={{ textAlign: "center" }}>Quyền Admin</th>
+                      <th style={{ width: "60px", textAlign: "center" }}>Sửa</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -574,11 +704,20 @@ export default function AdminPage() {
                           </label>
                           {adminUser.id === voteUser?.id && <span style={{ fontSize: "0.75em", color: "#888", display: "block", marginTop: "4px" }}>(You)</span>}
                         </td>
+                        <td style={{ textAlign: "center" }}>
+                          <button
+                            className="edit-user-btn"
+                            onClick={() => handleOpenEditUser(adminUser)}
+                            title="Chỉnh sửa thông tin user"
+                          >
+                            ✏️
+                          </button>
+                        </td>
                       </tr>
                     ))}
                     {adminsData.length === 0 && (
                       <tr>
-                        <td colSpan="5" style={{ textAlign: "center", padding: "2rem" }}>
+                        <td colSpan="6" style={{ textAlign: "center", padding: "2rem" }}>
                           Chưa có dữ liệu user
                         </td>
                       </tr>
@@ -1014,6 +1153,200 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="modal-overlay" onClick={handleCloseEditUser}>
+          <div className="modal-content edit-user-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>✏️ Chỉnh sửa thông tin User</h3>
+              <button className="modal-close-btn" onClick={handleCloseEditUser}>×</button>
+            </div>
+
+            <div className="modal-body">
+              <div className="edit-user-preview">
+                {editUserForm.url_avatar ? (
+                  <img src={editUserForm.url_avatar} alt="Avatar preview" className="avatar-preview" />
+                ) : (
+                  <div className="avatar-preview-placeholder">
+                    {editUserForm.full_name?.[0]?.toUpperCase() || editUserForm.user_name?.[0]?.toUpperCase() || "?"}
+                  </div>
+                )}
+                <div className="preview-info">
+                  <div className="preview-name">{editUserForm.full_name || editUserForm.user_name || "Chưa có tên"}</div>
+                  <div className="preview-username">@{editUserForm.user_name || "username"}</div>
+                </div>
+              </div>
+
+              <div className="edit-form-group">
+                <label className="edit-form-label">Tên hiển thị (Full Name)</label>
+                <input
+                  type="text"
+                  className="edit-form-input"
+                  value={editUserForm.full_name}
+                  onChange={(e) => setEditUserForm(prev => ({ ...prev, full_name: e.target.value }))}
+                  placeholder="Nhập tên hiển thị"
+                />
+              </div>
+
+              <div className="edit-form-group">
+                <label className="edit-form-label">Username</label>
+                <input
+                  type="text"
+                  className="edit-form-input"
+                  value={editUserForm.user_name}
+                  onChange={(e) => setEditUserForm(prev => ({ ...prev, user_name: e.target.value }))}
+                  placeholder="Nhập username"
+                />
+              </div>
+
+              <div className="edit-form-group">
+                <label className="edit-form-label">URL Avatar</label>
+                <input
+                  type="text"
+                  className="edit-form-input"
+                  value={editUserForm.url_avatar}
+                  onChange={(e) => setEditUserForm(prev => ({ ...prev, url_avatar: e.target.value }))}
+                  placeholder="https://example.com/avatar.jpg"
+                />
+              </div>
+
+              <div className="edit-form-group">
+                <label className="edit-form-label">Mô tả (Description)</label>
+                <textarea
+                  className="edit-form-input edit-form-textarea"
+                  value={editUserForm.description}
+                  onChange={(e) => setEditUserForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Nhập mô tả về user"
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={handleCloseEditUser} disabled={isSavingUser}>
+                Hủy
+              </button>
+              <button className="btn btn-primary" onClick={handleSaveUserProfile} disabled={isSavingUser}>
+                {isSavingUser ? "⏳ Đang lưu..." : "💾 Lưu thay đổi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Avatar Bulk Update Modal */}
+      {showAvatarModal && (
+        <div className="modal-overlay" onClick={handleCloseAvatarModal}>
+          <div className="modal-content avatar-update-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>🖼️ Cập nhật Avatar hàng loạt</h3>
+              <button className="modal-close-btn" onClick={handleCloseAvatarModal}>×</button>
+            </div>
+
+            <div className="modal-body">
+              <p style={{ color: "#888", marginBottom: "1rem", fontSize: "0.9rem" }}>
+                Nhập FPT Chat Token để lấy avatar từ FPT Chat và cập nhật cho users có username trùng khớp.
+              </p>
+
+              <div className="edit-form-group">
+                <label className="edit-form-label">FPT Chat Token</label>
+                <input
+                  type="text"
+                  className="edit-form-input"
+                  value={avatarToken}
+                  onChange={(e) => setAvatarToken(e.target.value)}
+                  placeholder="Nhập Bearer Token từ FPT Chat"
+                  disabled={isUpdatingAvatars}
+                />
+              </div>
+
+              {/* Progress Display */}
+              {isUpdatingAvatars && (
+                <div className="avatar-progress">
+                  <div className="progress-header">
+                    {avatarProgress.phase === "fetching" ? "🔄 Đang lấy dữ liệu..." : "⏳ Đang cập nhật avatar..."}
+                  </div>
+                  {avatarProgress.phase === "updating" && avatarProgress.total > 0 && (
+                    <>
+                      <div className="progress-bar-container">
+                        <div
+                          className="progress-bar-fill"
+                          style={{ width: `${(avatarProgress.current / avatarProgress.total) * 100}%` }}
+                        />
+                      </div>
+                      <div className="progress-info">
+                        <span className="progress-count">{avatarProgress.current} / {avatarProgress.total}</span>
+                        <span className="progress-user">@{avatarProgress.currentUser}</span>
+                      </div>
+                    </>
+                  )}
+                  {avatarProgress.phase === "fetching" && (
+                    <div className="progress-info">
+                      <span className="progress-user">{avatarProgress.currentUser}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Update Result */}
+              {avatarUpdateResult && (
+                <div className={`avatar-update-result ${avatarUpdateResult.success ? 'success' : 'error'}`}>
+                  {avatarUpdateResult.success ? (
+                    <>
+                      <div className="result-header">✅ Cập nhật thành công!</div>
+                      <div className="result-stats">
+                        <div className="stat-item">
+                          <span className="stat-label">Tổng participants từ FPT Chat:</span>
+                          <span className="stat-value">{avatarUpdateResult.totalParticipants}</span>
+                        </div>
+                        <div className="stat-item">
+                          <span className="stat-label">Có avatar:</span>
+                          <span className="stat-value">{avatarUpdateResult.withAvatar}</span>
+                        </div>
+                        <div className="stat-item">
+                          <span className="stat-label">Username trùng khớp:</span>
+                          <span className="stat-value">{avatarUpdateResult.matched}</span>
+                        </div>
+                        <div className="stat-item highlight">
+                          <span className="stat-label">Đã cập nhật:</span>
+                          <span className="stat-value">{avatarUpdateResult.updated}</span>
+                        </div>
+                        <div className="stat-item">
+                          <span className="stat-label">Bỏ qua (không đổi):</span>
+                          <span className="stat-value">{avatarUpdateResult.skipped}</span>
+                        </div>
+                      </div>
+                      {avatarUpdateResult.errors?.length > 0 && (
+                        <div className="result-errors">
+                          <div className="error-header">⚠️ Lỗi ({avatarUpdateResult.errors.length}):</div>
+                          {avatarUpdateResult.errors.slice(0, 5).map((err, i) => (
+                            <div key={i} className="error-item">{err.username}: {err.error}</div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="result-error">
+                      <div className="error-header">❌ Lỗi</div>
+                      <div className="error-message">{avatarUpdateResult.message}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={handleCloseAvatarModal} disabled={isUpdatingAvatars}>
+                Đóng
+              </button>
+              <button className="btn btn-primary" onClick={handleBulkUpdateAvatars} disabled={isUpdatingAvatars || !avatarToken.trim()}>
+                {isUpdatingAvatars ? "⏳ Đang cập nhật..." : "🔄 Cập nhật Avatar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
                 .admin-table {
                     width: 100%;
@@ -1210,6 +1543,281 @@ export default function AdminPage() {
                     background: rgba(168, 85, 247, 0.2);
                     color: #c084fc;
                     border: 1px solid rgba(168, 85, 247, 0.3);
+                }
+
+                /* Edit User Button */
+                .edit-user-btn {
+                    background: rgba(99, 102, 241, 0.15);
+                    border: 1px solid rgba(99, 102, 241, 0.3);
+                    border-radius: 8px;
+                    padding: 0.4rem 0.6rem;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    font-size: 1rem;
+                }
+                .edit-user-btn:hover {
+                    background: rgba(99, 102, 241, 0.3);
+                    border-color: rgba(99, 102, 241, 0.5);
+                    transform: scale(1.05);
+                }
+
+                /* Edit User Modal */
+                .modal-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.75);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 1000;
+                    backdrop-filter: blur(4px);
+                }
+                .modal-content {
+                    background: #1a1a2e;
+                    border-radius: 16px;
+                    max-width: 500px;
+                    width: 90%;
+                    max-height: 90vh;
+                    overflow-y: auto;
+                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                }
+                .modal-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 1.25rem 1.5rem;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                }
+                .modal-header h3 {
+                    margin: 0;
+                    font-size: 1.25rem;
+                    color: #fff;
+                }
+                .modal-close-btn {
+                    background: none;
+                    border: none;
+                    color: #888;
+                    font-size: 1.5rem;
+                    cursor: pointer;
+                    padding: 0;
+                    line-height: 1;
+                    transition: color 0.2s;
+                }
+                .modal-close-btn:hover {
+                    color: #fff;
+                }
+                .modal-body {
+                    padding: 1.5rem;
+                }
+                .modal-footer {
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 1rem;
+                    padding: 1.25rem 1.5rem;
+                    border-top: 1px solid rgba(255, 255, 255, 0.1);
+                }
+
+                /* Edit User Preview */
+                .edit-user-preview {
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                    padding: 1rem;
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 12px;
+                    margin-bottom: 1.5rem;
+                }
+                .avatar-preview {
+                    width: 64px;
+                    height: 64px;
+                    border-radius: 50%;
+                    object-fit: cover;
+                    border: 3px solid var(--gold);
+                }
+                .avatar-preview-placeholder {
+                    width: 64px;
+                    height: 64px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: bold;
+                    font-size: 1.5rem;
+                    border: 3px solid var(--gold);
+                }
+                .preview-info {
+                    flex: 1;
+                }
+                .preview-name {
+                    font-weight: 600;
+                    font-size: 1.1rem;
+                    color: #fff;
+                }
+                .preview-username {
+                    color: #888;
+                    font-size: 0.9rem;
+                }
+
+                /* Edit Form */
+                .edit-form-group {
+                    margin-bottom: 1rem;
+                }
+                .edit-form-label {
+                    display: block;
+                    margin-bottom: 0.5rem;
+                    font-weight: 500;
+                    color: #ddd;
+                    font-size: 0.9rem;
+                }
+                .edit-form-input {
+                    width: 100%;
+                    padding: 0.75rem 1rem;
+                    border-radius: 8px;
+                    background: rgba(0, 0, 0, 0.3);
+                    border: 1px solid rgba(255, 255, 255, 0.15);
+                    color: white;
+                    font-size: 0.95rem;
+                    transition: border-color 0.2s, box-shadow 0.2s;
+                    box-sizing: border-box;
+                }
+                .edit-form-input:focus {
+                    outline: none;
+                    border-color: var(--gold);
+                    box-shadow: 0 0 0 2px rgba(252, 211, 77, 0.2);
+                }
+                .edit-form-input::placeholder {
+                    color: #666;
+                }
+                .edit-form-textarea {
+                    resize: vertical;
+                    min-height: 80px;
+                }
+
+                /* Avatar Update Modal */
+                .avatar-update-modal {
+                    max-width: 550px;
+                }
+                .avatar-progress {
+                    margin-top: 1.5rem;
+                    padding: 1rem;
+                    background: rgba(99, 102, 241, 0.1);
+                    border: 1px solid rgba(99, 102, 241, 0.3);
+                    border-radius: 8px;
+                }
+                .progress-header {
+                    font-weight: 600;
+                    color: #818cf8;
+                    margin-bottom: 0.75rem;
+                }
+                .progress-bar-container {
+                    height: 8px;
+                    background: rgba(255, 255, 255, 0.1);
+                    border-radius: 4px;
+                    overflow: hidden;
+                    margin-bottom: 0.5rem;
+                }
+                .progress-bar-fill {
+                    height: 100%;
+                    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+                    border-radius: 4px;
+                    transition: width 0.3s ease;
+                }
+                .progress-info {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    font-size: 0.85rem;
+                }
+                .progress-count {
+                    color: #fff;
+                    font-weight: 500;
+                }
+                .progress-user {
+                    color: #a5b4fc;
+                    font-family: monospace;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                    max-width: 200px;
+                }
+                .avatar-update-result {
+                    margin-top: 1.5rem;
+                    padding: 1rem;
+                    border-radius: 8px;
+                    font-size: 0.9rem;
+                }
+                .avatar-update-result.success {
+                    background: rgba(16, 185, 129, 0.1);
+                    border: 1px solid rgba(16, 185, 129, 0.3);
+                }
+                .avatar-update-result.error {
+                    background: rgba(239, 68, 68, 0.1);
+                    border: 1px solid rgba(239, 68, 68, 0.3);
+                }
+                .result-header {
+                    font-weight: 600;
+                    font-size: 1rem;
+                    margin-bottom: 0.75rem;
+                    color: #10b981;
+                }
+                .avatar-update-result.error .result-header,
+                .avatar-update-result.error .error-header {
+                    color: #ef4444;
+                }
+                .result-stats {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                }
+                .stat-item {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 0.25rem 0;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                }
+                .stat-item:last-child {
+                    border-bottom: none;
+                }
+                .stat-item.highlight {
+                    background: rgba(252, 211, 77, 0.1);
+                    padding: 0.5rem;
+                    border-radius: 4px;
+                    margin: 0.25rem 0;
+                }
+                .stat-item.highlight .stat-value {
+                    color: #FCD34D;
+                    font-weight: 600;
+                }
+                .stat-label {
+                    color: #888;
+                }
+                .stat-value {
+                    font-weight: 500;
+                    color: #fff;
+                }
+                .result-errors {
+                    margin-top: 1rem;
+                    padding-top: 1rem;
+                    border-top: 1px solid rgba(255, 255, 255, 0.1);
+                }
+                .error-header {
+                    font-weight: 500;
+                    color: #f59e0b;
+                    margin-bottom: 0.5rem;
+                }
+                .error-item {
+                    font-size: 0.85rem;
+                    color: #888;
+                    padding: 0.25rem 0;
+                }
+                .error-message {
+                    color: #ef4444;
                 }
 
                 /* Nominee Statistics Styles */

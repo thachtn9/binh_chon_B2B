@@ -590,9 +590,10 @@ a:hover {
   background: var(--bg-card);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
-  padding: var(--spacing-xl);
-  max-width: 455px;
+  padding: var(--spacing-xl) var(--spacing-xl) var(--spacing-lg);
+  max-width: 500px;
   width: 100%;
+  min-height: 380px;
   position: relative;
   animation: slideUp 0.3s ease;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
@@ -839,6 +840,52 @@ a:hover {
   margin: 0;
 }
 
+/* Thể lệ dự đoán */
+.prediction-modal-rules {
+  background: rgba(255, 215, 0, 0.05);
+  border: 1px solid rgba(255, 215, 0, 0.15);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.rules-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+
+.rules-icon {
+  font-size: 1rem;
+}
+
+.rules-title {
+  font-weight: 600;
+  color: var(--gold);
+  font-size: 0.9rem;
+}
+
+.rules-list {
+  margin: 0;
+  padding-left: var(--spacing-lg);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.rules-list li {
+  margin-bottom: 4px;
+}
+
+.rules-list li:last-child {
+  margin-bottom: 0;
+}
+
+.rules-list strong {
+  color: var(--gold);
+}
+
 .prediction-modal-actions {
   display: flex;
   gap: var(--spacing-md);
@@ -848,6 +895,68 @@ a:hover {
 .prediction-modal-actions .btn {
   flex: 1;
   max-width: 150px;
+}
+
+/* Vote Rules Section - Compact horizontal */
+.vote-rules-section {
+  margin-top: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.vote-rules-card {
+  background: rgba(255, 215, 0, 0.03);
+  border: 1px solid rgba(255, 215, 0, 0.1);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-sm) var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.vote-rules-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-shrink: 0;
+}
+
+.vote-rules-icon {
+  font-size: 1rem;
+}
+
+.vote-rules-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--gold);
+  margin: 0;
+}
+
+.vote-rules-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs) var(--spacing-md);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.vote-rules-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vote-rules-list li::before {
+  content: "•";
+  color: var(--gold);
+  opacity: 0.5;
+}
+
+.vote-rules-list strong {
+  color: var(--gold);
 }
 
 /* Vote Summary */
@@ -971,6 +1080,46 @@ a:hover {
   font-size: 0.7rem;
   font-weight: 600;
   margin-left: 4px;
+}
+
+/* History Page - Category based layout */
+.history-category-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.history-vote-detail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+}
+
+.history-nominee-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.history-nominee-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--gold);
+}
+
+.history-nominee-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text);
 }
 
 /* Login Page */
@@ -1263,6 +1412,7 @@ a:hover {
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+  min-height: 600px;
 }
 
 /* Left Sidebar - Categories */
@@ -2911,8 +3061,7 @@ html {
 .nominee-card-wrapper {
   opacity: 0;
   transform: translateY(50px) scale(0.9);
-  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: opacity, transform;
 }
 
@@ -2922,15 +3071,33 @@ html {
 }
 
 /* Staggered delay classes - mỗi card xuất hiện lần lượt */
-.nominee-card-wrapper.delay-0 { transition-delay: 0s; }
-.nominee-card-wrapper.delay-1 { transition-delay: 0.08s; }
-.nominee-card-wrapper.delay-2 { transition-delay: 0.16s; }
-.nominee-card-wrapper.delay-3 { transition-delay: 0.24s; }
-.nominee-card-wrapper.delay-4 { transition-delay: 0.32s; }
-.nominee-card-wrapper.delay-5 { transition-delay: 0.4s; }
-.nominee-card-wrapper.delay-6 { transition-delay: 0.48s; }
-.nominee-card-wrapper.delay-7 { transition-delay: 0.56s; }
-.nominee-card-wrapper.delay-8 { transition-delay: 0.64s; }
+.nominee-card-wrapper.delay-0 {
+  transition-delay: 0s;
+}
+.nominee-card-wrapper.delay-1 {
+  transition-delay: 0.08s;
+}
+.nominee-card-wrapper.delay-2 {
+  transition-delay: 0.16s;
+}
+.nominee-card-wrapper.delay-3 {
+  transition-delay: 0.24s;
+}
+.nominee-card-wrapper.delay-4 {
+  transition-delay: 0.32s;
+}
+.nominee-card-wrapper.delay-5 {
+  transition-delay: 0.4s;
+}
+.nominee-card-wrapper.delay-6 {
+  transition-delay: 0.48s;
+}
+.nominee-card-wrapper.delay-7 {
+  transition-delay: 0.56s;
+}
+.nominee-card-wrapper.delay-8 {
+  transition-delay: 0.64s;
+}
 
 /* Hover lift effect when card is visible */
 .nominee-card-wrapper.is-visible .nominee-card-v2 {
@@ -3520,6 +3687,7 @@ html {
   display: flex;
   flex-direction: column;
   background: linear-gradient(180deg, rgba(99, 102, 241, 0.1) 0%, transparent 100%);
+  overflow: visible;
 }
 
 @keyframes slideUp {
@@ -3568,6 +3736,7 @@ html {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  overflow: visible;
 }
 
 .nominee-detail-header {
@@ -3636,6 +3805,7 @@ html {
   gap: var(--spacing-xl);
   margin-top: var(--spacing-xl);
   padding-top: var(--spacing-lg);
+  overflow: visible;
   border-top: 1px solid var(--glass-border);
 }
 
@@ -3711,6 +3881,58 @@ html {
 .nominee-detail-like-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+/* Like button wrapper for flying hearts */
+.like-btn-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+/* Flying hearts container */
+.flying-hearts-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* Flying heart animation */
+.flying-heart {
+  position: absolute;
+  bottom: 100%;
+  transform: translateX(-50%);
+  animation: flyHeart 1.5s ease-out forwards;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 100;
+  text-shadow: 0 0 10px rgba(255, 100, 100, 0.5);
+}
+
+@keyframes flyHeart {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(0.5) rotate(0deg);
+  }
+  20% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-30px) scale(1) rotate(-10deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(calc(-50% + 15px)) translateY(-80px) scale(1.1) rotate(10deg);
+  }
+  80% {
+    opacity: 0.6;
+    transform: translateX(calc(-50% - 10px)) translateY(-130px) scale(0.9) rotate(-5deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-180px) scale(0.6) rotate(15deg);
+  }
 }
 
 /* Comments Section - Left side */
@@ -4051,4 +4273,166 @@ html {
     margin-top: var(--spacing-md);
     padding-top: var(--spacing-md);
   }
+}
+
+/* ===== QR Donate Modal ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.qr-modal-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 20px;
+  padding: 2rem;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  z-index: 1001;
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.qr-modal-title {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffd700;
+  margin-bottom: 1.5rem;
+}
+
+.qr-code-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.qr-code-image {
+  width: 250px;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  background: white;
+  padding: 8px;
+}
+
+.bank-info {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.bank-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.bank-info-row:last-child {
+  border-bottom: none;
+}
+
+.bank-label {
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.bank-value {
+  color: #fff;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bank-value.highlight {
+  color: #ffd700;
+}
+
+.copy-btn {
+  background: rgba(255, 215, 0, 0.2);
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.copy-btn:hover {
+  background: rgba(255, 215, 0, 0.4);
+  transform: scale(1.1);
+}
+
+.qr-note {
+  text-align: center;
+  color: #888;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.yeb-donate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
+  color: #1a1a2e;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  border-radius: 50px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+}
+
+.yeb-donate-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
 }
