@@ -229,6 +229,7 @@ export default function HomePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [defaultAnonymous, setDefaultAnonymous] = useState(false);
   const [isLoadingModal, setIsLoadingModal] = useState(false);
+  const hashProcessedRef = useRef(null); // Track processed URL hash to avoid re-fetching
 
   // YEB sponsorship state
   const [yebTotal, setYebTotal] = useState(null);
@@ -254,48 +255,61 @@ export default function HomePage() {
     loadYEBData();
   }, []);
 
-  // Handle URL hash to open specific profile
+  // Handle URL hash to open specific profile (only once per hash)
   useEffect(() => {
     if (loading || nominees.length === 0) return;
 
     const hash = location.hash;
-    if (hash && hash.startsWith("#")) {
-      const username = hash.substring(1); // Remove the # character
-      if (username) {
-        // Find nominee by username
-        const nominee = nominees.find((n) => n.user_name?.toLowerCase() === username.toLowerCase());
 
-        if (nominee) {
-          // Scroll to the nominee card
-          setTimeout(async () => {
-            const element = document.getElementById(`nominee-${nominee.id}`);
-            if (element) {
-              element.scrollIntoView({ behavior: "smooth", block: "center" });
-            }
+    // If hash is empty/cleared, reset the processed ref for future navigations
+    if (!hash || !hash.startsWith("#")) {
+      if (hashProcessedRef.current) {
+        hashProcessedRef.current = null;
+      }
+      return;
+    }
 
-            // Open modal with anonymous checkbox checked by default
-            setDefaultAnonymous(true);
-            setIsModalOpen(true);
-            setIsLoadingModal(true);
+    // Skip if already processed this hash or modal is open
+    if (hashProcessedRef.current === hash || isModalOpen) return;
 
-            try {
-              // Fetch fresh data
-              const [freshNominee, freshComments] = await Promise.all([fetchNomineeByIdFresh(nominee.id), fetchCommentsWithProfile(nominee.id)]);
+    const username = hash.substring(1); // Remove the # character
+    if (username) {
+      // Find nominee by username
+      const nominee = nominees.find((n) => n.user_name?.toLowerCase() === username.toLowerCase());
 
-              setSelectedNominee(freshNominee || nominee);
-              setModalComments(freshComments);
-            } catch (error) {
-              console.error("Error refreshing modal data:", error);
-              setSelectedNominee(nominee);
-              setModalComments(comments[nominee.id] || []);
-            } finally {
-              setIsLoadingModal(false);
-            }
-          }, 500);
-        }
+      if (nominee) {
+        // Mark this hash as processed to prevent re-fetching
+        hashProcessedRef.current = hash;
+
+        // Scroll to the nominee card
+        setTimeout(async () => {
+          const element = document.getElementById(`nominee-${nominee.id}`);
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+
+          // Open modal with anonymous checkbox checked by default
+          setDefaultAnonymous(true);
+          setIsModalOpen(true);
+          setIsLoadingModal(true);
+
+          try {
+            // Fetch fresh data
+            const [freshNominee, freshComments] = await Promise.all([fetchNomineeByIdFresh(nominee.id), fetchCommentsWithProfile(nominee.id)]);
+
+            setSelectedNominee(freshNominee || nominee);
+            setModalComments(freshComments);
+          } catch (error) {
+            console.error("Error refreshing modal data:", error);
+            setSelectedNominee(nominee);
+            setModalComments(comments[nominee.id] || []);
+          } finally {
+            setIsLoadingModal(false);
+          }
+        }, 500);
       }
     }
-  }, [location.hash, loading, nominees]);
+  }, [location.hash, loading, nominees, isModalOpen]);
 
   // Fetch nominees and comments
   useEffect(() => {
