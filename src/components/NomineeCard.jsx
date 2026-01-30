@@ -147,7 +147,7 @@ export default function NomineeCard({ nominee, categoryId, categoryName, showVot
         <div className="nominee-role">
           {nominee.user_name} - {nominee.role}
         </div>
-        {nominee.description && <div className="nominee-description">{nominee.description}</div>}
+        {/* {nominee.description && <div className="nominee-description">{nominee.description}</div>} */}
       </div>
       {showVotes && (
         <div className="nominee-votes">
