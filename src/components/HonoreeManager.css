@@ -1,0 +1,596 @@
+/* HonoreeManager Component Styles */
+/* Mobile-first design */
+
+.honoree-manager {
+  width: 100%;
+}
+
+/* Loading State */
+.honoree-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #888;
+}
+
+.honoree-loading .spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--gold, #fbbf24);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Header */
+.honoree-header {
+  margin-bottom: 1.5rem;
+}
+
+.honoree-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  color: var(--gold, #fbbf24);
+}
+
+.honoree-header .icon {
+  font-size: 1.5rem;
+}
+
+.honoree-header .subtitle {
+  color: #888;
+  font-size: 0.9rem;
+  margin: 0 0 1rem 0;
+}
+
+.progress-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.progress-text {
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+.progress-bar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold, #fbbf24), #f59e0b);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* API Key Section */
+.api-key-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+
+.api-key-input-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  align-items: center;
+}
+
+.api-key-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.5rem 0.75rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.api-link {
+  font-size: 0.8rem;
+  color: var(--gold, #fbbf24);
+  text-decoration: none;
+}
+
+.api-link:hover {
+  text-decoration: underline;
+}
+
+/* Categories Grid */
+.honoree-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .honoree-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .honoree-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Honoree Card */
+.honoree-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.honoree-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.honoree-card.has-winner {
+  border-color: var(--gold, #fbbf24);
+  border-width: 2px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.category-icon {
+  font-size: 1.25rem;
+}
+
+.category-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.check-mark {
+  color: var(--gold, #fbbf24);
+  font-weight: bold;
+}
+
+/* Winner Content */
+.winner-content {
+  padding: 1rem;
+}
+
+.winner-photo {
+  margin-bottom: 1rem;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.winner-photo img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  transition: transform 0.2s ease;
+}
+
+.winner-photo:hover img {
+  transform: scale(1.02);
+}
+
+.winner-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.winner-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 2px solid var(--gold, #fbbf24);
+}
+
+.winner-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: bold;
+  font-size: 1.25rem;
+}
+
+.winner-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.winner-name {
+  font-weight: 600;
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.winner-role {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.winner-notes {
+  font-size: 0.85rem;
+  color: #aaa;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  margin-bottom: 0.75rem;
+  font-style: italic;
+}
+
+.confirmed-info {
+  font-size: 0.75rem;
+  color: #666;
+  margin-bottom: 0.75rem;
+}
+
+.card-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.card-actions .btn {
+  flex: 1;
+}
+
+/* No Winner State */
+.no-winner {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.no-winner-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.5;
+}
+
+.no-winner p {
+  color: #888;
+  font-size: 0.9rem;
+  margin: 0 0 1rem 0;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.honoree-modal {
+  background: #1a1a2e;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modalSlideIn 0.2s ease;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.honoree-modal .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: sticky;
+  top: 0;
+  background: #1a1a2e;
+  z-index: 1;
+}
+
+.honoree-modal .modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  color: white;
+}
+
+.modal-body {
+  padding: 1.25rem;
+}
+
+/* Form Groups */
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.9rem;
+  color: #aaa;
+  margin-bottom: 0.5rem;
+}
+
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: white;
+  font-size: 0.95rem;
+}
+
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--gold, #fbbf24);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Photo Upload */
+.photo-upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.photo-preview {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.photo-preview img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+}
+
+.remove-photo-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.remove-photo-btn:hover {
+  background: rgba(220, 38, 38, 0.8);
+}
+
+.upload-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.upload-hint {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+/* Modal Footer */
+.modal-footer {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  position: sticky;
+  bottom: 0;
+  background: #1a1a2e;
+}
+
+.modal-footer .btn {
+  flex: 1;
+}
+
+/* Buttons */
+.btn {
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-sm {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold, #fbbf24), #f59e0b);
+  color: #000;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.btn-danger {
+  background: rgba(220, 38, 38, 0.2);
+  color: #f87171;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.3);
+}
+
+/* Mobile Optimizations */
+@media (max-width: 480px) {
+  .honoree-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .card-header {
+    padding: 0.6rem 0.75rem;
+  }
+
+  .category-name {
+    font-size: 0.85rem;
+  }
+
+  .winner-content {
+    padding: 0.75rem;
+  }
+
+  .winner-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .winner-name {
+    font-size: 0.9rem;
+  }
+
+  .modal-body {
+    padding: 1rem;
+  }
+
+  .vote-stat-item {
+    padding: 0.4rem 0.5rem;
+    gap: 0.5rem;
+  }
+
+  .stat-avatar {
+    width: 28px;
+    height: 28px;
+  }
+
+  .btn {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* Dark theme scrollbar for modal */
+.honoree-modal::-webkit-scrollbar {
+  width: 6px;
+}
+
+.honoree-modal::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.honoree-modal::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.honoree-modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}

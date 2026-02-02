@@ -1552,3 +1552,315 @@ export async function bulkUpdateUserAvatars(participants, onProgress) {
 
   return results;
 }
+
+// =============================================
+// CATEGORY WINNERS (HONOREES) API
+// Quản lý người được vinh danh ở mỗi hạng mục
+// =============================================
+
+/**
+ * Upload ảnh lên ImgBB (free image hosting)
+ * @param {File} imageFile - File ảnh cần upload
+ * @param {string} apiKey - ImgBB API key (get from https://api.imgbb.com/)
+ * @returns {string} - URL của ảnh đã upload
+ */
+export async function uploadImageToImgBB(imageFile, apiKey) {
+  if (!apiKey) {
+    throw new Error("Cần API key ImgBB để upload ảnh. Đăng ký miễn phí tại https://api.imgbb.com/");
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append("image", imageFile);
+
+    const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error?.message || "Upload thất bại");
+    }
+
+    return data.data.url;
+  } catch (err) {
+    console.error("Error uploading image to ImgBB:", err);
+    throw err;
+  }
+}
+
+/**
+ * Lấy danh sách tất cả người được vinh danh
+ * @returns {Array} - Danh sách winners với thông tin nominee
+ */
+export async function getCategoryWinners() {
+  if (!supabase) {
+    // Demo mode - return from localStorage
+    const stored = localStorage.getItem("category_winners");
+    return stored ? JSON.parse(stored) : [];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("category_winners")
+      .select(`
+        *,
+        winner:winner_id (
+          id,
+          user_name,
+          full_name,
+          role,
+          url_avatar,
+          email
+        ),
+        confirmed_by_user:confirmed_by (
+          id,
+          user_name,
+          full_name
+        )
+      `)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching category winners:", error);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.error("Error fetching category winners:", err);
+    return [];
+  }
+}
+
+/**
+ * Lấy winner cho một category cụ thể
+ * @param {string} categoryId - ID của hạng mục
+ */
+export async function getCategoryWinner(categoryId) {
+  if (!supabase) {
+    const stored = localStorage.getItem("category_winners");
+    const winners = stored ? JSON.parse(stored) : [];
+    return winners.find((w) => w.category_id === categoryId) || null;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("category_winners")
+      .select(`
+        *,
+        winner:winner_id (
+          id,
+          user_name,
+          full_name,
+          role,
+          url_avatar,
+          email
+        )
+      `)
+      .eq("category_id", categoryId)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      // PGRST116 = no rows returned
+      console.error("Error fetching category winner:", error);
+      return null;
+    }
+
+    return data;
+  } catch (err) {
+    console.error("Error fetching category winner:", err);
+    return null;
+  }
+}
+
+/**
+ * Lưu/Cập nhật người được vinh danh cho một hạng mục
+ * @param {Object} winnerData - { category_id, category_name, winner_id, award_photo_url, notes }
+ * @param {string} confirmedByUserId - ID của admin xác nhận
+ */
+export async function saveCategoryWinner(winnerData, confirmedByUserId) {
+  const { category_id, category_name, winner_id, award_photo_url, notes, actual_vote_count } = winnerData;
+
+  if (!supabase) {
+    // Demo mode - save to localStorage
+    const stored = localStorage.getItem("category_winners");
+    const winners = stored ? JSON.parse(stored) : [];
+
+    const existingIndex = winners.findIndex((w) => w.category_id === category_id);
+    const newWinner = {
+      id: existingIndex >= 0 ? winners[existingIndex].id : `demo_${Date.now()}`,
+      category_id,
+      category_name,
+      winner_id,
+      award_photo_url,
+      actual_vote_count: actual_vote_count || 0,
+      notes,
+      confirmed_by: confirmedByUserId,
+      confirmed_at: new Date().toISOString(),
+      created_at: existingIndex >= 0 ? winners[existingIndex].created_at : new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    if (existingIndex >= 0) {
+      winners[existingIndex] = newWinner;
+    } else {
+      winners.push(newWinner);
+    }
+
+    localStorage.setItem("category_winners", JSON.stringify(winners));
+    return newWinner;
+  }
+
+  try {
+    // Check if winner already exists for this category
+    const { data: existing } = await supabase
+      .from("category_winners")
+      .select("id")
+      .eq("category_id", category_id)
+      .single();
+
+    const winnerRecord = {
+      category_id,
+      category_name,
+      winner_id,
+      award_photo_url,
+      actual_vote_count: actual_vote_count || 0,
+      notes,
+      confirmed_by: confirmedByUserId,
+      confirmed_at: new Date().toISOString(),
+    };
+
+    let result;
+    if (existing) {
+      // Update existing record
+      const { data, error } = await supabase
+        .from("category_winners")
+        .update(winnerRecord)
+        .eq("id", existing.id)
+        .select(`
+          *,
+          winner:winner_id (
+            id,
+            user_name,
+            full_name,
+            role,
+            url_avatar
+          )
+        `)
+        .single();
+
+      if (error) throw error;
+      result = data;
+    } else {
+      // Insert new record
+      const { data, error } = await supabase
+        .from("category_winners")
+        .insert(winnerRecord)
+        .select(`
+          *,
+          winner:winner_id (
+            id,
+            user_name,
+            full_name,
+            role,
+            url_avatar
+          )
+        `)
+        .single();
+
+      if (error) throw error;
+      result = data;
+    }
+
+    return result;
+  } catch (err) {
+    console.error("Error saving category winner:", err);
+    throw err;
+  }
+}
+
+/**
+ * Xóa người được vinh danh của một hạng mục
+ * @param {string} categoryId - ID của hạng mục
+ */
+export async function deleteCategoryWinner(categoryId) {
+  if (!supabase) {
+    const stored = localStorage.getItem("category_winners");
+    const winners = stored ? JSON.parse(stored) : [];
+    const filtered = winners.filter((w) => w.category_id !== categoryId);
+    localStorage.setItem("category_winners", JSON.stringify(filtered));
+    return true;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("category_winners")
+      .delete()
+      .eq("category_id", categoryId);
+
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error("Error deleting category winner:", err);
+    throw err;
+  }
+}
+
+/**
+ * Lấy thống kê votes cho từng nominee trong một category
+ * Dùng để hiển thị khi chọn winner
+ */
+export async function getVoteStatsForCategory(categoryId) {
+  if (!supabase) {
+    return [];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("votes")
+      .select(`
+        nominee_id,
+        nominee:nominee_id (
+          id,
+          user_name,
+          full_name,
+          role,
+          url_avatar
+        )
+      `)
+      .eq("category_id", categoryId);
+
+    if (error) {
+      console.error("Error fetching vote stats:", error);
+      return [];
+    }
+
+    // Count votes per nominee
+    const countMap = new Map();
+    data.forEach((vote) => {
+      const id = vote.nominee_id;
+      if (!countMap.has(id)) {
+        countMap.set(id, {
+          nominee_id: id,
+          nominee: vote.nominee,
+          vote_count: 0,
+        });
+      }
+      countMap.get(id).vote_count++;
+    });
+
+    // Convert to array and sort by vote count
+    return Array.from(countMap.values()).sort((a, b) => b.vote_count - a.vote_count);
+  } catch (err) {
+    console.error("Error getting vote stats for category:", err);
+    return [];
+  }
+}

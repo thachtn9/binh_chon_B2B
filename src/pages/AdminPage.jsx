@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { getAllVoteSessions, getVoterRankingReport, getAllUsersForAdmin, updateUserAdminStatus, updateUserProfile, formatCurrency, formatDate, findCorrectPredictionsByCategory, getNomineesForWinnerSelection, getNomineeStatistics, getSettings, updateSettings, fetchFPTChatParticipants, bulkUpdateUserAvatars, fetchAllCommentsForAdmin } from "../lib/supabase";
 import { categories } from "../config/votingConfig";
 import { useNavigate } from "react-router-dom";
+import HonoreeManager from "../components/HonoreeManager";
 
 export default function AdminPage() {
   const { user, voteUser, loading } = useAuth();
@@ -538,7 +539,7 @@ export default function AdminPage() {
           ⚙️ Cài đặt
         </button>
         <button className={`btn ${activeTab === "results" ? "btn-primary" : "btn-secondary"}`} onClick={() => setActiveTab("results")}>
-          🏆 Tìm Người Đoán Đúng
+          🏆 Vinh Danh
         </button>
         <button className={`btn ${activeTab === "avatars" ? "btn-primary" : "btn-secondary"}`} onClick={() => setShowAvatarModal(true)}>
           🖼️ Cập nhật Avatar
@@ -950,242 +951,10 @@ export default function AdminPage() {
 
           {activeTab === "results" && (
             <div className="card">
-              <h3 style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>🏆 Tìm Người Dự Đoán Chính Xác</h3>
-              <p style={{ color: "#888", marginBottom: "1.5rem", fontSize: "0.9rem" }}>Chọn người được vinh danh cho mỗi hạng mục, sau đó nhấn "Tìm kiếm" để xem ai đã dự đoán đúng.</p>
-
-              {/* Winner Selection Grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
-                {getAllSelectionCategories().map((category) => (
-                  <div
-                    key={category.id}
-                    style={{
-                      padding: "1rem",
-                      background: "rgba(255,255,255,0.03)",
-                      borderRadius: "12px",
-                      border: selectedWinners[category.id] ? "2px solid var(--gold)" : "1px solid rgba(255,255,255,0.1)",
-                    }}
-                  >
-                    <div style={{ marginBottom: "0.5rem", fontWeight: "600", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                      <span>{category.icon}</span>
-                      <span>{category.name}</span>
-                      {selectedWinners[category.id] && <span style={{ color: "var(--gold)" }}>✓</span>}
-                    </div>
-                    <select
-                      value={selectedWinners[category.id] || ""}
-                      onChange={(e) => handleWinnerSelect(category.id, e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "0.5rem",
-                        borderRadius: "8px",
-                        background: "rgba(0,0,0,0.3)",
-                        border: "1px solid rgba(255,255,255,0.15)",
-                        color: "white",
-                        fontSize: "0.9rem",
-                      }}
-                    >
-                      <option value="">-- Chọn người được vinh danh --</option>
-                      {allNominees
-                        .filter((n) => category.role_filter.includes(n.role))
-                        .map((nominee) => (
-                          <option key={nominee.id} value={nominee.id}>
-                            {nominee.full_name || nominee.user_name} ({nominee.role})
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                ))}
-              </div>
-
-              {/* Search Button */}
-              <div style={{ marginBottom: "2rem" }}>
-                <button className="btn btn-primary" onClick={handleFindPredictions} disabled={isSearching || Object.keys(selectedWinners).length === 0} style={{ marginRight: "1rem" }}>
-                  {isSearching ? "⏳ Đang tìm..." : `🔍 Tìm kiếm (${Object.keys(selectedWinners).length} hạng mục)`}
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setSelectedWinners({});
-                    setPredictionResults({});
-                    setTopPredictors([]);
-                  }}
-                >
-                  🗑️ Xóa tất cả
-                </button>
-              </div>
-
-              {/* Overall Top Predictors Ranking */}
-              {topPredictors.length > 0 && (
-                <div className="top-predictors-section">
-                  <div className="top-predictors-header">
-                    <h4 style={{ margin: 0, color: "var(--gold)", display: "flex", alignItems: "center", gap: "0.5rem" }}>🏆 Bảng Xếp Hạng Tổng Hợp - Người Dự Đoán Chính Xác Nhất</h4>
-                    <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.9rem", color: "#aaa" }}>
-                      Ưu tiên: Số hạng mục đúng → Dự đoán số người gần đúng nhất → Thời gian sớm nhất
-                    </p>
-                  </div>
-
-                  <div className="top-predictors-podium">
-                    {topPredictors.slice(0, 10).map((predictor, index) => {
-                      const accuracy = Math.round((predictor.total_correct_categories / Object.keys(selectedWinners).length) * 100);
-                      return (
-                        <div
-                          key={predictor.voter_email || predictor.voter_id}
-                          className={`predictor-rank-card ${index < 3 ? "top-three" : ""}`}
-                          style={{
-                            order: index === 0 ? 2 : index === 1 ? 1 : index === 2 ? 3 : index + 1,
-                          }}
-                        >
-                          <div
-                            className="rank-number"
-                            style={{
-                              background: index === 0 ? "linear-gradient(135deg, #FFD700, #FFA500)" : index === 1 ? "linear-gradient(135deg, #C0C0C0, #A8A8A8)" : index === 2 ? "linear-gradient(135deg, #CD7F32, #B87333)" : "#555",
-                              color: index < 3 ? "#000" : "#fff",
-                            }}
-                          >
-                            {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`}
-                          </div>
-
-                          <div className="predictor-avatar-large">{predictor.voter_avatar ? <img src={predictor.voter_avatar} alt="" /> : <div className="avatar-placeholder-large">{predictor.voter_name?.[0]?.toUpperCase() || "?"}</div>}</div>
-
-                          <div className="predictor-info-large">
-                            <div className="predictor-name-large">{predictor.voter_name}</div>
-                            <div className="predictor-email-small">{predictor.voter_email}</div>
-                          </div>
-
-                          <div className="predictor-stats-grid">
-                            <div className="stat-box">
-                              <div className="stat-value" style={{ color: "var(--gold)" }}>
-                                {predictor.total_correct_categories}
-                              </div>
-                              <div className="stat-label">Hạng mục đúng</div>
-                            </div>
-                            <div className="stat-box">
-                              <div className="stat-value" style={{ color: "#10b981" }}>
-                                {accuracy}%
-                              </div>
-                              <div className="stat-label">Độ chính xác</div>
-                            </div>
-                            <div className="stat-box">
-                              <div className="stat-value" style={{ color: predictor.total_prediction_diff === 0 ? "#10b981" : "#60a5fa" }}>
-                                ±{predictor.total_prediction_diff}
-                              </div>
-                              <div className="stat-label">Tổng chênh lệch</div>
-                            </div>
-                          </div>
-
-                          <div className="categories-won">
-                            <div className="categories-won-label">Chi tiết các hạng mục đoán đúng:</div>
-                            <div className="categories-won-list">
-                              {predictor.categories_details.map((cat) => (
-                                <span key={cat.category_id} className="category-badge-small" title={`Dự đoán: ${cat.predicted_count} | Thực tế: ${cat.actual_count} | Chênh lệch: ±${cat.prediction_diff}`}>
-                                  {getCategoryDisplayName(cat.category_id)}
-                                  <span className="prediction-detail">
-                                    {cat.prediction_diff === 0 ? " 🎯" : ` (±${cat.prediction_diff})`}
-                                  </span>
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Results by Category */}
-              {Object.keys(predictionResults).length > 0 && (
-                <div className="results-by-category">
-                  <h4 style={{ marginBottom: "1.5rem", color: "var(--gold)", display: "flex", alignItems: "center", gap: "0.5rem" }}>📊 Kết quả theo từng hạng mục</h4>
-
-                  <div className="category-results-grid">
-                    {Object.values(predictionResults).map((categoryResult) => (
-                      <div key={categoryResult.category_id} className="category-result-card">
-                        <div className="category-result-header">
-                          <h5>{getCategoryDisplayName(categoryResult.category_id)}</h5>
-                          <div className="winner-info">
-                            <span className="winner-label">🏆 Người được vinh danh:</span>
-                            <span className="winner-name">{getWinnerName(categoryResult.winner_id)}</span>
-                          </div>
-                          <div className="category-stats">
-                            <span className="stat-item">
-                              <strong>{categoryResult.unique_voters}</strong> người đoán đúng
-                            </span>
-                            <span className="stat-divider">•</span>
-                            <span className="stat-item">
-                              Số thực tế: <strong style={{ color: "var(--gold)" }}>{categoryResult.actual_correct_count}</strong>
-                            </span>
-                          </div>
-                        </div>
-
-                        {categoryResult.voters.length > 0 ? (
-                          <div className="voters-list">
-                            <table className="admin-table compact">
-                              <thead>
-                                <tr>
-                                  <th style={{ width: "50px" }}>Hạng</th>
-                                  <th>Người dự đoán</th>
-                                  <th style={{ width: "100px", textAlign: "center" }}>Dự đoán</th>
-                                  <th style={{ width: "80px", textAlign: "center" }}>Chênh lệch</th>
-                                  <th style={{ width: "140px" }}>Thời gian</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {categoryResult.voters.map((voter, index) => (
-                                  <tr
-                                    key={voter.voter_email || voter.voter_id}
-                                    style={{
-                                      background: index < 3 ? "rgba(251, 191, 36, 0.08)" : "transparent",
-                                    }}
-                                  >
-                                    <td>
-                                      <div
-                                        className="rank-badge"
-                                        style={{
-                                          background: index === 0 ? "#FFD700" : index === 1 ? "#C0C0C0" : index === 2 ? "#CD7F32" : "#555",
-                                          color: index < 3 ? "#000" : "#fff",
-                                        }}
-                                      >
-                                        {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : index + 1}
-                                      </div>
-                                    </td>
-                                    <td>
-                                      <div className="voter-info">
-                                        {voter.voter_avatar ? <img src={voter.voter_avatar} alt="" className="voter-avatar-small" /> : <div className="voter-avatar-placeholder">{voter.voter_name?.[0]?.toUpperCase() || "?"}</div>}
-                                        <div>
-                                          <div style={{ fontWeight: "600" }}>{voter.voter_name}</div>
-                                          <div style={{ fontSize: "0.8em", color: "#888" }}>{voter.voter_email}</div>
-                                        </div>
-                                      </div>
-                                    </td>
-                                    <td style={{ textAlign: "center" }}>
-                                      <span className="prediction-count-badge" title={`Dự đoán ${voter.predicted_count} người sẽ chọn giống`}>
-                                        👥 {voter.predicted_count}
-                                      </span>
-                                    </td>
-                                    <td style={{ textAlign: "center" }}>
-                                      <span 
-                                        className={`diff-badge ${voter.prediction_diff === 0 ? 'perfect' : voter.prediction_diff <= 2 ? 'close' : ''}`}
-                                        title={`Chênh lệch ${voter.prediction_diff} so với thực tế (${categoryResult.actual_correct_count})`}
-                                      >
-                                        {voter.prediction_diff === 0 ? '🎯 Chính xác!' : `±${voter.prediction_diff}`}
-                                      </span>
-                                    </td>
-                                    <td style={{ fontSize: "0.85rem", color: "#aaa" }}>{formatDate(voter.first_prediction_time)}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        ) : (
-                          <div className="no-voters">
-                            <span>😢 Không có ai dự đoán đúng hạng mục này</span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <HonoreeManager
+                allNominees={allNominees}
+                currentUser={voteUser}
+              />
             </div>
           )}
         </div>

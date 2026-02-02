@@ -28,6 +28,14 @@ export default function Header() {
                     >
                         Dự đoán
                     </Link>
+                    {voteUser?.is_admin && (
+                        <Link
+                            to="/results"
+                            className={`nav-link ${isActive('/results') ? 'active' : ''}`}
+                        >
+                            Kết Quả
+                        </Link>
+                    )}
                     {user && (
                         <Link
                             to="/history"

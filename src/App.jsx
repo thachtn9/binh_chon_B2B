@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage'
 import VotePage from './pages/VotePage'
 import HistoryPage from './pages/HistoryPage'
 import AdminPage from './pages/AdminPage'
+import ResultsPage from './pages/ResultsPage'
 import './index.css'
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
             <Route path="/vote" element={<VotePage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/admin" element={<AdminPage />} />
+            <Route path="/results" element={<ResultsPage />} />
           </Routes>
           <Footer />
         </VoteProvider>

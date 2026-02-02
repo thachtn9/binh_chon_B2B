@@ -106,6 +106,28 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 6. CATEGORY_WINNERS TABLE
+-- Lưu thông tin người được vinh danh ở mỗi hạng mục
+CREATE TABLE IF NOT EXISTS category_winners (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  -- Category ID từ file config (string)
+  category_id VARCHAR(50) UNIQUE NOT NULL,
+  category_name VARCHAR(100),
+  -- Người được vinh danh
+  winner_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  -- Ảnh nhận thưởng (URL từ image hosting service)
+  award_photo_url TEXT,
+  -- Số phiếu bầu thực tế
+  actual_vote_count INT DEFAULT 0,
+  -- Ghi chú
+  notes TEXT,
+  -- Admin xác nhận
+  confirmed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  confirmed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- =============================================
 -- INDEXES
 -- =============================================
@@ -121,6 +143,8 @@ CREATE INDEX IF NOT EXISTS idx_vote_sessions_voter_email ON vote_sessions(voter_
 CREATE INDEX IF NOT EXISTS idx_comments_nominee_id ON comments(nominee_id);
 CREATE INDEX IF NOT EXISTS idx_comments_commenter_email ON comments(commenter_email);
 CREATE INDEX IF NOT EXISTS idx_comments_created_at ON comments(created_at);
+CREATE INDEX IF NOT EXISTS idx_category_winners_winner_id ON category_winners(winner_id);
+CREATE INDEX IF NOT EXISTS idx_category_winners_category_id ON category_winners(category_id);
 
 -- =============================================
 -- VIEWS
@@ -254,6 +278,12 @@ CREATE TRIGGER update_users_updated_at
 DROP TRIGGER IF EXISTS update_settings_updated_at ON settings;
 CREATE TRIGGER update_settings_updated_at
   BEFORE UPDATE ON settings
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_category_winners_updated_at ON category_winners;
+CREATE TRIGGER update_category_winners_updated_at
+  BEFORE UPDATE ON category_winners
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
