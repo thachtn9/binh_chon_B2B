@@ -215,7 +215,7 @@ function NavigationDots({ nominees, activeIndex, onNavigate }) {
 }
 
 export default function HomePage() {
-  const { user, signInWithGoogle } = useAuth();
+  const { user, voteUser, signInWithGoogle } = useAuth();
   const location = useLocation();
   const [nominees, setNominees] = useState([]);
   const [comments, setComments] = useState({});
@@ -235,6 +235,7 @@ export default function HomePage() {
   const [defaultAnonymous, setDefaultAnonymous] = useState(false);
   const [isLoadingModal, setIsLoadingModal] = useState(false);
   const hashProcessedRef = useRef(null); // Track processed URL hash to avoid re-fetching
+  const hasScrolledToNomineesRef = useRef(false);
 
   // YEB sponsorship state
   const [yebTotal, setYebTotal] = useState(null);
@@ -244,6 +245,21 @@ export default function HomePage() {
   // Lazy load intersection observer
   const { visibleItems, observe } = useIntersectionObserver();
 
+  const yebLixiItems = [
+    { left: "4%", top: "18%", size: 22, delay: "0s", duration: "6.5s" },
+    { left: "12%", top: "65%", size: 26, delay: "1s", duration: "7s" },
+    { left: "20%", top: "35%", size: 20, delay: "2.2s", duration: "6s" },
+    { left: "30%", top: "12%", size: 24, delay: "1.4s", duration: "7.8s" },
+    { left: "38%", top: "70%", size: 28, delay: "0.6s", duration: "8s" },
+    { left: "50%", top: "25%", size: 22, delay: "2.8s", duration: "6.2s" },
+    { left: "58%", top: "60%", size: 26, delay: "1.8s", duration: "7.4s" },
+    { left: "68%", top: "15%", size: 24, delay: "0.9s", duration: "6.8s" },
+    { left: "76%", top: "45%", size: 20, delay: "2.6s", duration: "6s" },
+    { left: "84%", top: "22%", size: 26, delay: "1.2s", duration: "7.2s" },
+    { left: "90%", top: "70%", size: 24, delay: "0.4s", duration: "8.2s" },
+    { left: "95%", top: "38%", size: 20, delay: "2s", duration: "6.6s" },
+  ];
+
   // Filter nominees based on search term
   const filteredNominees = nominees.filter((nominee) => {
     if (!searchTerm.trim()) return true;
@@ -252,6 +268,13 @@ export default function HomePage() {
     const userName = (nominee.user_name || "").toLowerCase();
     return fullName.includes(search) || userName.includes(search);
   });
+
+  const scrollToNomineesTitle = useCallback(() => {
+    const nomineesTitle = document.getElementById("nominees-section-title");
+    if (!nomineesTitle) return;
+    const top = nomineesTitle.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({ top, behavior: "smooth" });
+  }, []);
 
   // Handle keyboard search - press any key to start searching
   useEffect(() => {
@@ -274,20 +297,30 @@ export default function HomePage() {
       // Show search and focus input
       if (!isSearchVisible) {
         setIsSearchVisible(true);
+        if (e.key && e.key.length === 1) {
+          setSearchTerm(e.key);
+        }
       }
+      scrollToNomineesTitle();
+
       // Focus will be set by useEffect when isSearchVisible changes
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isModalOpen, isQRModalOpen, isSearchVisible]);
+  }, [isModalOpen, isQRModalOpen, isSearchVisible, scrollToNomineesTitle]);
 
   // Focus search input when it becomes visible
   useEffect(() => {
-    if (isSearchVisible && searchInputRef.current) {
-      searchInputRef.current.focus();
+    if (isSearchVisible) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToNomineesTitle();
+          searchInputRef.current?.focus();
+        });
+      });
     }
-  }, [isSearchVisible]);
+  }, [isSearchVisible, scrollToNomineesTitle]);
 
   // Clear search when clicking outside
   const handleSearchBlur = () => {
@@ -480,13 +513,33 @@ export default function HomePage() {
       {/* YEB Sponsorship Banner */}
       {yebTotal !== null && (
         <section className="yeb-sponsorship-banner">
+          <div className="yeb-lixi-field" aria-hidden="true">
+            {yebLixiItems.map((item, index) => (
+              <span
+                key={`yeb-lixi-${index}`}
+                className="yeb-lixi"
+                style={{ left: item.left, top: item.top, fontSize: item.size, animationDelay: item.delay, animationDuration: item.duration }}
+              >
+                🧧
+              </span>
+            ))}
+          </div>
           <div className="container">
             <div className="yeb-content">
               <img src="/than_tai.png" alt="Thần Tài" className="yeb-thantai-img" />
               <div className="yeb-info">
                 <h3 className="yeb-title">🎊 YEP B2B 2025</h3>
                 <p className="yeb-subtitle">Tổng tiền tài trợ cho YEP</p>
-                <div className="yeb-amount">{yebLoading ? <span className="yeb-loading">Đang tải...</span> : <span className="yeb-value">{formatCurrency(yebTotal)}</span>}</div>
+                <div
+                  className="yeb-amount"
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => window.open("https://docs.google.com/spreadsheets/d/17p0Wg81ZQ4mFvmArnAugY_q1U8w6dOG-Pt__pYeUC38/edit?gid=88569587", "_blank", "noopener,noreferrer")}
+                  onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && window.open("https://docs.google.com/spreadsheets/d/17p0Wg81ZQ4mFvmArnAugY_q1U8w6dOG-Pt__pYeUC38/edit?gid=88569587", "_blank", "noopener,noreferrer")}
+                  title="Xem chi tiết tài trợ"
+                >
+                  {yebLoading ? <span className="yeb-loading">Đang tải...</span> : <span className="yeb-value">{formatCurrency(yebTotal)}</span>}
+                </div>
                 <div className="yeb-donate-cta">
                   <button className="yeb-donate-btn" onClick={() => setIsQRModalOpen(true)}>
                     <span>❤️</span> Tài trợ ngay
@@ -531,7 +584,7 @@ export default function HomePage() {
 
           <section className="nominees-section-v2">
             <div className="container">
-              <h2 className="nominees-section-title">
+              <h2 className="nominees-section-title" id="nominees-section-title">
                 👤 Danh sách profile ({nominees.length} người)
                 {!isSearchVisible && (
                   <span className="search-keyboard-hint" onClick={() => setIsSearchVisible(true)}>
@@ -544,7 +597,7 @@ export default function HomePage() {
               <div className={`search-bar-container ${isSearchVisible ? "visible" : ""}`}>
                 <div className="search-bar">
                   <span className="search-icon">🔍</span>
-                  <input ref={searchInputRef} type="text" className="search-input" placeholder="Tìm kiếm theo tên..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onBlur={handleSearchBlur} />
+                  <input ref={searchInputRef} type="text" className="search-input" placeholder="Tìm kiếm theo tên..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onBlur={handleSearchBlur} onFocus={scrollToNomineesTitle} />
                   {searchTerm && (
                     <button
                       className="search-clear-btn"
@@ -607,7 +660,7 @@ export default function HomePage() {
       </section>
 
       {/* Nominee Detail Modal */}
-      <NomineeDetailModal isOpen={isModalOpen} onClose={handleCloseModal} nominee={selectedNominee} comments={modalComments} onAddComment={handleAddComment} onLikeChange={handleLikeChange} user={user} defaultAnonymous={defaultAnonymous} isLoading={isLoadingModal} />
+      <NomineeDetailModal isOpen={isModalOpen} onClose={handleCloseModal} nominee={selectedNominee} comments={modalComments} onAddComment={handleAddComment} onLikeChange={handleLikeChange} user={user} voteUser={voteUser} defaultAnonymous={defaultAnonymous} isLoading={isLoadingModal} />
 
       {/* QR Donate Modal */}
       <QRDonateModal isOpen={isQRModalOpen} onClose={() => setIsQRModalOpen(false)} user={user} />

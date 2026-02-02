@@ -474,7 +474,13 @@ export async function getUserVoteHistory(voterId) {
       `
       *,
       votes (
-        *,
+        id,
+        category_id,
+        category_name,
+        nominee_id,
+        predicted_count,
+        amount,
+        created_at,
         nominee:nominee_id (
           id,
           user_name,
@@ -833,11 +839,11 @@ export async function findCorrectPredictionsByCategory(winners) {
         category_name,
         nominee_id,
         predicted_count,
+        created_at,
         vote_sessions (
           id,
           voter_name,
-          voter_email,
-          created_at
+          voter_email
         ),
         users:voter_id (
           id,
@@ -847,7 +853,7 @@ export async function findCorrectPredictionsByCategory(winners) {
         )
       `
       )
-      .order("created_at", { foreignTable: "vote_sessions", ascending: true });
+      .order("created_at", { ascending: true });
 
     if (error) {
       console.error("Error fetching votes:", error);
@@ -868,7 +874,7 @@ export async function findCorrectPredictionsByCategory(winners) {
       const uniqueVoterEmails = new Set(correctVotes.map((v) => v.voter_email || v.voter_id));
       const actualCorrectCount = uniqueVoterEmails.size;
 
-      // Group by voter (email) - chỉ lấy dự đoán đầu tiên của mỗi người
+      // Group by voter (email) - lấy dự đoán sau cùng của mỗi người cho đề cử này
       const voterMap = new Map();
 
       correctVotes.forEach((vote) => {
@@ -880,15 +886,15 @@ export async function findCorrectPredictionsByCategory(winners) {
             voter_name: vote.vote_sessions?.voter_name || vote.users?.full_name || vote.users?.user_name || "Unknown",
             voter_avatar: vote.users?.url_avatar,
             predicted_count: vote.predicted_count || 0,
-            first_prediction_time: vote.vote_sessions?.created_at,
+            last_prediction_time: vote.created_at, // Lấy time từ bảng votes
             // Độ chênh lệch giữa dự đoán và thực tế
             prediction_diff: Math.abs((vote.predicted_count || 0) - actualCorrectCount),
           });
         } else {
-          // Nếu đã có, kiểm tra xem dự đoán này có sớm hơn không và cập nhật predicted_count
+          // Nếu đã có, kiểm tra xem dự đoán này có sau hơn không và cập nhật predicted_count
           const existing = voterMap.get(voterKey);
-          if (vote.vote_sessions?.created_at < existing.first_prediction_time) {
-            existing.first_prediction_time = vote.vote_sessions?.created_at;
+          if (vote.created_at > existing.last_prediction_time) {
+            existing.last_prediction_time = vote.created_at;
             existing.predicted_count = vote.predicted_count || 0;
             existing.prediction_diff = Math.abs((vote.predicted_count || 0) - actualCorrectCount);
           }
@@ -897,14 +903,14 @@ export async function findCorrectPredictionsByCategory(winners) {
 
       // Convert to array and sort:
       // 1. Ưu tiên người có predicted_count gần đúng nhất (prediction_diff nhỏ nhất)
-      // 2. Nếu bằng nhau, ưu tiên người dự đoán sớm hơn
+      // 2. Nếu bằng nhau, ưu tiên người dự đoán sớm hơn (dựa trên thời gian dự đoán cuối cùng)
       const votersArray = Array.from(voterMap.values()).sort((a, b) => {
         // First: by prediction difference (ascending - smaller is better)
         if (a.prediction_diff !== b.prediction_diff) {
           return a.prediction_diff - b.prediction_diff;
         }
-        // Then: by first prediction time (ascending - earlier is better)
-        return new Date(a.first_prediction_time) - new Date(b.first_prediction_time);
+        // Then: by last prediction time (ascending - earlier is better)
+        return new Date(a.last_prediction_time) - new Date(b.last_prediction_time);
       });
 
       // Get category name from first vote or use categoryId
