@@ -1624,7 +1624,8 @@ export async function getCategoryWinners() {
           full_name,
           role,
           url_avatar,
-          email
+          email,
+          description
         ),
         confirmed_by_user:confirmed_by (
           id,

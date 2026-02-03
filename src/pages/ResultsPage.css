@@ -205,7 +205,7 @@
   }
 }
 
-/* Category Header */
+/* Category Header - Original */
 .category-header {
   text-align: center;
   margin-bottom: 3rem;
@@ -246,6 +246,42 @@
   line-height: 1.6;
 }
 
+/* Category Header - Compact */
+.category-header-compact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.category-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.category-icon-small {
+  font-size: 2rem;
+}
+
+.category-name-small {
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--gold) 0%, #fcd34d 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.category-description-small {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  max-width: 500px;
+  line-height: 1.4;
+}
+
 /* Winner Showcase - 2 Column Layout */
 .winner-showcase {
   display: flex;
@@ -260,12 +296,12 @@
 
 /* Left Column - Profile */
 .winner-profile-column {
-  flex: 1;
+  flex: 0 0 320px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 /* Right Column - Award & Predictor */
@@ -275,14 +311,15 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2rem;
+  gap: 1.5rem;
+  min-width: 0;
 }
 
 /* Laurel Wreath Avatar */
 .winner-avatar-container {
   position: relative;
-  width: 280px;
-  height: 280px;
+  width: 320px;
+  height: 320px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -290,7 +327,7 @@
 
 .laurel-wreath {
   position: absolute;
-  width: 280px;
+  width: 320px;
   height: auto;
   top: 50%;
   left: 50%;
@@ -313,12 +350,12 @@
 }
 
 .winner-avatar {
-  width: 160px;
-  height: 160px;
+  width: 190px;
+  height: 190px;
   border-radius: 50%;
   object-fit: cover;
   border: 5px solid var(--gold);
-  box-shadow: 0 0 0 8px rgba(251, 191, 36, 0.2), 0 0 60px rgba(251, 191, 36, 0.4);
+  box-shadow: 0 0 0 8px rgba(251, 191, 36, 0.2), 0 0 50px rgba(251, 191, 36, 0.4);
   animation: avatarGlow 3s ease-in-out infinite;
   position: relative;
   z-index: 1;
@@ -336,74 +373,100 @@
 
 /* Winner Info */
 .winner-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
+  max-width: 300px;
 }
 
 .winner-name {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.winner-subtitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gold);
   margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.winner-profile-description {
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  line-height: 3;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  white-space: pre-line;
 }
 
 .winner-role-badge {
-  display: inline-block;
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
   padding: 0.25rem 1rem;
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark, #4f46e5) 100%);
   color: white;
   border-radius: 9999px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .winner-description {
   font-size: 1rem;
   color: var(--text-secondary);
-  max-width: 400px;
-  line-height: 1.6;
-  margin-bottom: 1rem;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
 }
 
 .winner-votes {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
   background: var(--glass);
   border: 1px solid var(--glass-border);
   border-radius: 9999px;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
 }
 
 .votes-icon {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
 }
 
-/* Award Photo */
+/* Award Photo - Large */
 .winner-award-photo-container {
   width: 100%;
   display: flex;
   justify-content: center;
+  flex: 1;
 }
 
 .winner-award-photo {
   width: 100%;
-  max-width: 380px;
+  max-width: 500px;
   height: auto;
-  aspect-ratio: 4/3;
+  max-height: 400px;
   object-fit: cover;
   border-radius: 1rem;
-  border: 3px solid var(--gold);
-  box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.15), 0 20px 40px rgba(0, 0, 0, 0.3);
+  border: 4px solid var(--gold);
+  box-shadow: 0 0 0 6px rgba(251, 191, 36, 0.15), 0 25px 50px rgba(0, 0, 0, 0.4);
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .winner-award-photo:hover {
-  transform: scale(1.03);
-  box-shadow: 0 0 0 6px rgba(251, 191, 36, 0.25), 0 25px 50px rgba(0, 0, 0, 0.4);
+  transform: scale(1.02);
+  box-shadow: 0 0 0 8px rgba(251, 191, 36, 0.25), 0 30px 60px rgba(0, 0, 0, 0.5);
 }
 
 /* Predictor Section */
@@ -419,14 +482,14 @@
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  padding: 1rem 2rem;
+  padding: 0.875rem 2rem;
   width: 100%;
-  max-width: 380px;
+  max-width: 500px;
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(99, 102, 241, 0.1) 100%);
   border: 2px solid var(--primary);
-  border-radius: 1rem;
+  border-radius: 0.75rem;
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -448,11 +511,11 @@
   justify-content: center;
   gap: 0.75rem;
   color: var(--text-secondary);
-  padding: 1rem;
+  padding: 0.875rem;
   background: var(--glass);
-  border-radius: 1rem;
+  border-radius: 0.75rem;
   width: 100%;
-  max-width: 380px;
+  max-width: 500px;
 }
 
 .predictor-loading .loading-spinner.small {
@@ -465,11 +528,11 @@
 .predictor-card {
   background: var(--glass);
   border: 1px solid var(--glass-border);
-  border-radius: 1rem;
-  padding: 1.25rem;
+  border-radius: 0.75rem;
+  padding: 1rem;
   animation: predictorReveal 0.5s ease-out;
   width: 100%;
-  max-width: 380px;
+  max-width: 500px;
 }
 
 @keyframes predictorReveal {
@@ -540,11 +603,11 @@
   font-size: 0.9rem;
   font-style: italic;
   text-align: center;
-  padding: 1rem;
+  padding: 0.875rem;
   background: var(--glass);
-  border-radius: 1rem;
+  border-radius: 0.75rem;
   width: 100%;
-  max-width: 380px;
+  max-width: 500px;
 }
 
 /* Scroll Indicator */
@@ -798,17 +861,30 @@
 @media (max-width: 900px) {
   .winner-showcase {
     flex-direction: column;
-    gap: 2.5rem;
+    gap: 2rem;
     padding: 0 1rem;
   }
 
-  .winner-profile-column,
+  .winner-profile-column {
+    flex: none;
+    width: 100%;
+  }
+
   .winner-action-column {
     width: 100%;
   }
 
   .winner-award-photo {
-    max-width: 350px;
+    max-width: 400px;
+    max-height: 300px;
+  }
+
+  .category-header-compact {
+    margin-bottom: 1rem;
+  }
+
+  .category-name-small {
+    font-size: 1.25rem;
   }
 }
 
@@ -852,21 +928,25 @@
   }
 
   .winner-avatar-container {
-    width: 220px;
-    height: 220px;
+    width: 260px;
+    height: 260px;
   }
 
   .winner-avatar {
-    width: 120px;
-    height: 120px;
+    width: 150px;
+    height: 150px;
   }
 
   .laurel-wreath {
-    width: 220px;
+    width: 260px;
+  }
+
+  .laurel-wreath {
+    width: 200px;
   }
 
   .winner-name {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
   }
 
   .summary-title {

@@ -5,6 +5,42 @@ import { getCategoryWinners, findCorrectPredictionsByCategory, findCorrectPredic
 import { categories } from "../config/votingConfig";
 import "./ResultsPage.css";
 
+// Hardcoded category descriptions và subtitles
+const CATEGORY_INFO = {
+  "star-performer-pm": {
+    subtitle: "The Captain of the Year",
+    description: "Bản lĩnh làm chủ cuộc chơi\nChuyên gia gỡ rối\nNgười kết nối văn hóa",
+  },
+  "star-performer-ba": {
+    subtitle: "The Mastermind Analyst",
+    description: "Bậc thầy truyền tả\nTư duy giải pháp\nTài liệu Sạch & Chuẩn",
+  },
+  "star-performer-dev": {
+    subtitle: "The Code Master",
+    description: "Code Sạch & Chất\nKhắc tinh của Bug khó\nĐồng đội tin cậy",
+  },
+  "unsung-hero": {
+    subtitle: "Người hùng Thầm lặng",
+    description: "Gánh vác việc không tên\nLuôn Say Yes khi đồng đội cần\nNăng lượng chữa lành",
+  },
+  innovator: {
+    subtitle: "The Innovator & AI Pioneer",
+    description: "Phá vỡ lối mòn\nBậc thầy AI/Automation\nLan tỏa tri thức",
+  },
+  "dream-team": {
+    subtitle: "Dự án Xuất sắc",
+    description: "Chất lượng vàng\nKhách hàng hài lòng tuyệt đối\nSức mạnh tập thể",
+  },
+  challenger: {
+    subtitle: "The Project Challenger",
+    description: "Nhiệm vụ bất khả thi\nLội ngược dòng\nTinh thần thép",
+  },
+  "peoples-choice": {
+    subtitle: "Nhân viên được yêu thích nhất",
+    description: "Trạm sạc năng lượng\nSự chân thành & Cởi mở\nNhịp cầu kết nối",
+  },
+};
+
 // Helper để lấy tất cả category/sub-category theo thứ tự
 function getAllCategoriesOrdered() {
   const result = [];
@@ -210,11 +246,13 @@ export default function ResultsPage() {
 
         return (
           <section key={category.id} className={`results-section winner-section section-${index % 2 === 0 ? "even" : "odd"}`} ref={(el) => (sectionsRef.current[index + 1] = el)}>
-            {/* Category Header */}
-            <div className="category-header">
-              <span className="category-icon">{category.icon}</span>
-              <h2 className="category-name">{category.name}</h2>
-              <p className="category-description">{category.description}</p>
+            {/* Category Header - Compact */}
+            <div className="category-header-compact">
+              <div className="category-title-row">
+                <span className="category-icon-small">{category.icon}</span>
+                <h2 className="category-name-small">{category.name}</h2>
+              </div>
+              {category.description && <p className="category-description-small">{category.description}</p>}
             </div>
 
             {/* Winner Card - 2 Column Layout */}
@@ -228,7 +266,8 @@ export default function ResultsPage() {
 
                 <div className="winner-info">
                   <h3 className="winner-name">{winner.winner?.full_name || winner.winner?.user_name}</h3>
-                  {winner.winner?.role && <span className="winner-role-badge">{winner.winner.role}</span>}
+                  {CATEGORY_INFO[category.id]?.subtitle && <p className="winner-subtitle">{CATEGORY_INFO[category.id].subtitle}</p>}
+                  {CATEGORY_INFO[category.id]?.description && <p className="winner-profile-description">{CATEGORY_INFO[category.id].description}</p>}
                   {winner.notes && <p className="winner-description">{winner.notes}</p>}
                   {winner.actual_vote_count > 0 && (
                     <div className="winner-votes">
@@ -241,7 +280,7 @@ export default function ResultsPage() {
 
               {/* Right Column - Award Photo & Predictor */}
               <div className="winner-action-column">
-                {/* Award Photo */}
+                {/* Award Photo - Large */}
                 {winner.award_photo_url && (
                   <div className="winner-award-photo-container">
                     <img src={winner.award_photo_url} alt="Award moment" className="winner-award-photo" />
