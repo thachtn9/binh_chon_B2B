@@ -110,9 +110,9 @@ function AppContent() {
 function App() {
   const isDevToolsOpen = useDevToolsDetection();
 
-  if (isDevToolsOpen) {
-    return <DevToolsWarning />;
-  }
+  // if (isDevToolsOpen) {
+  //   return <DevToolsWarning />;
+  // }
 
   return (
     <BrowserRouter>
