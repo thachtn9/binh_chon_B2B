@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { getCategoryWinners, findCorrectPredictionsByCategory, findCorrectPredictions } from "../lib/supabase";
+import { getCategoryWinners, findCorrectPredictionsByCategory, findCorrectPredictions, getAllUsersForAdmin } from "../lib/supabase";
 import { categories } from "../config/votingConfig";
 import "./ResultsPage.css";
 
@@ -20,24 +20,24 @@ const CATEGORY_INFO = {
     description: "Code Sạch & Chất\nKhắc tinh của Bug khó\nĐồng đội tin cậy",
   },
   "unsung-hero": {
-    subtitle: "Người hùng Thầm lặng",
+    subtitle: "The Unsung Hero",
     description: "Gánh vác việc không tên\nLuôn Say Yes khi đồng đội cần\nNăng lượng chữa lành",
   },
   innovator: {
     subtitle: "The Innovator & AI Pioneer",
     description: "Phá vỡ lối mòn\nBậc thầy AI/Automation\nLan tỏa tri thức",
   },
+  "peoples-choice": {
+    subtitle: "The People's Choice",
+    description: "Trạm sạc năng lượng\nSự chân thành & Cởi mở\nNhịp cầu kết nối",
+  },
   "dream-team": {
-    subtitle: "Dự án Xuất sắc",
+    subtitle: "The Dream Team",
     description: "Chất lượng vàng\nKhách hàng hài lòng tuyệt đối\nSức mạnh tập thể",
   },
   challenger: {
     subtitle: "The Project Challenger",
     description: "Nhiệm vụ bất khả thi\nLội ngược dòng\nTinh thần thép",
-  },
-  "peoples-choice": {
-    subtitle: "Nhân viên được yêu thích nhất",
-    description: "Trạm sạc năng lượng\nSự chân thành & Cởi mở\nNhịp cầu kết nối",
   },
 };
 
@@ -77,39 +77,63 @@ export default function ResultsPage() {
   const [winners, setWinners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [predictorsMap, setPredictorsMap] = useState({});
-  const [loadingPredictors, setLoadingPredictors] = useState({});
   const [topPredictors, setTopPredictors] = useState([]);
-  const [activeSection, setActiveSection] = useState(0);
-  const sectionsRef = useRef([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [leavingPage, setLeavingPage] = useState(null); // page đang trượt ra
+  const [direction, setDirection] = useState("next");
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  // Predictor reveal animation states
+  const [revealedCategories, setRevealedCategories] = useState(new Set());
+  const [rollingCategory, setRollingCategory] = useState(null);
+  const [rollingPerson, setRollingPerson] = useState(null);
 
   const allCategories = getAllCategoriesOrdered();
+
+  // Categories with winners
+  const categoriesWithWinners = allCategories.filter((cat) => winners.some((w) => w.category_id === cat.id));
+
+  // Total pages: hero + categories + summary (THÁNH DỰ B2B)
+  const totalPages = Math.max(categoriesWithWinners.length + 2, 2);
+
+  const goToPage = useCallback(
+    (pageIndex) => {
+      if (isAnimating || pageIndex === currentPage || pageIndex < 0 || pageIndex >= totalPages) return;
+      const dir = pageIndex > currentPage ? "next" : "prev";
+      setDirection(dir);
+      setLeavingPage(currentPage);
+      setCurrentPage(pageIndex);
+      setIsAnimating(true);
+      setTimeout(() => {
+        setLeavingPage(null);
+        setIsAnimating(false);
+      }, 450);
+    },
+    [currentPage, isAnimating, totalPages]
+  );
+
+  const nextPage = useCallback(() => goToPage(currentPage + 1), [currentPage, goToPage]);
+  const prevPage = useCallback(() => goToPage(currentPage - 1), [currentPage, goToPage]);
 
   useEffect(() => {
     loadWinners();
   }, []);
 
-  // Intersection Observer cho scroll spy
+  // Keyboard navigation
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const index = sectionsRef.current.indexOf(entry.target);
-            if (index !== -1) {
-              setActiveSection(index);
-            }
-          }
-        });
-      },
-      { threshold: 0.5 }
-    );
-
-    sectionsRef.current.forEach((section) => {
-      if (section) observer.observe(section);
-    });
-
-    return () => observer.disconnect();
-  }, [winners]);
+    function handleKeyDown(e) {
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        nextPage();
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        prevPage();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [nextPage, prevPage]);
 
   // Check admin access
   if (!voteUser?.is_admin) {
@@ -129,17 +153,23 @@ export default function ResultsPage() {
 
   async function loadWinners() {
     try {
-      const data = await getCategoryWinners();
+      const [data, users] = await Promise.all([getCategoryWinners(), getAllUsersForAdmin()]);
       setWinners(data || []);
+      setAllUsers(users || []);
 
-      // Load top predictors nếu có winners
       if (data && data.length > 0) {
         const winnersObj = {};
         data.forEach((w) => {
           winnersObj[w.category_id] = w.winner_id;
         });
+
+        // Load top predictors
         const topResults = await findCorrectPredictions(winnersObj);
-        setTopPredictors(topResults?.slice(0, 5) || []);
+        setTopPredictors(topResults || []);
+
+        // Load all category predictors for summary page
+        const categoryResults = await findCorrectPredictionsByCategory(winnersObj);
+        setPredictorsMap(categoryResults || {});
       }
     } catch (error) {
       console.error("Error loading winners:", error);
@@ -148,36 +178,120 @@ export default function ResultsPage() {
     }
   }
 
-  async function loadPredictorForCategory(categoryId) {
-    if (predictorsMap[categoryId] || loadingPredictors[categoryId]) return;
-
-    setLoadingPredictors((prev) => ({ ...prev, [categoryId]: true }));
-
-    try {
-      const winner = winners.find((w) => w.category_id === categoryId);
-      if (!winner) return;
-
-      const winnersObj = { [categoryId]: winner.winner_id };
-      const results = await findCorrectPredictionsByCategory(winnersObj);
-
-      setPredictorsMap((prev) => ({
-        ...prev,
-        [categoryId]: results?.[categoryId] || null,
-      }));
-    } catch (error) {
-      console.error("Error loading predictor:", error);
-    } finally {
-      setLoadingPredictors((prev) => ({ ...prev, [categoryId]: false }));
-    }
-  }
-
-  function scrollToSection(index) {
-    sectionsRef.current[index]?.scrollIntoView({ behavior: "smooth" });
-  }
-
-  // Get winner for a specific category
   function getWinnerForCategory(categoryId) {
     return winners.find((w) => w.category_id === categoryId);
+  }
+
+  // Lấy toàn bộ danh sách users (trừ role PROJECT) làm pool cho rolling animation
+  function getAllVotersPool() {
+    return allUsers
+      .filter((u) => u.role !== "PROJECT")
+      .map((u) => ({
+        voter_name: u.user_name || u.full_name || "Unknown",
+        voter_full_name: u.full_name || u.user_name || "",
+        voter_username: u.user_name || "",
+        voter_avatar: u.url_avatar,
+      }));
+  }
+
+  // Slot-machine reveal animation
+  function revealPredictor(categoryId) {
+    if (rollingCategory) return; // đang chạy rồi thì không cho nhấn
+
+    const predictor = predictorsMap[categoryId];
+    if (!predictor || !predictor.voters || predictor.voters.length === 0) return;
+
+    const winner = predictor.voters[0]; // người dự đoán chính xác nhất
+    const pool = getAllVotersPool();
+
+    // Cần ít nhất vài người để chạy random
+    if (pool.length < 2) {
+      // Không đủ người để random, hiện luôn
+      setRevealedCategories((prev) => new Set([...prev, categoryId]));
+      return;
+    }
+
+    setRollingCategory(categoryId);
+
+    // Số người chạy chậm cuối cùng trước winner (2-4 người)
+    const slowTailCount = 2 + Math.floor(Math.random() * 3); // 2, 3 hoặc 4
+    // Tổng: 15-20 người random nhanh + slowTailCount người chậm + 1 winner
+    const fastCount = 15 + Math.floor(Math.random() * 6); // 15-20
+    const totalSteps = fastCount + slowTailCount + 1; // +1 cho winner cuối
+
+    // Tạo pool không chứa winner (winner chỉ xuất hiện ở bước cuối)
+    const poolWithoutWinner = pool.filter((p) => p.voter_name !== winner.voter_name);
+
+    // Shuffle helper
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    // Tạo sequence bằng cách lặp lại các vòng shuffle, không trùng liên tiếp
+    const sequence = [];
+    const stepsBeforeWinner = totalSteps - 1;
+    let shuffled = [];
+    let idx = 0;
+
+    for (let i = 0; i < stepsBeforeWinner; i++) {
+      // Hết vòng -> shuffle lại
+      if (idx >= shuffled.length) {
+        let newShuffle;
+        do {
+          newShuffle = shuffle(poolWithoutWinner);
+        } while (
+          // Đảm bảo người đầu vòng mới không trùng người cuối vòng cũ
+          sequence.length > 0 &&
+          newShuffle.length > 0 &&
+          newShuffle[0].voter_name === sequence[sequence.length - 1].voter_name
+        );
+        shuffled = newShuffle;
+        idx = 0;
+      }
+      sequence.push(shuffled[idx]);
+      idx++;
+    }
+
+    // Bước cuối luôn là winner
+    sequence.push(winner);
+
+    let step = 0;
+    setRollingPerson(sequence[0]);
+
+    const runStep = () => {
+      step++;
+      if (step >= sequence.length) {
+        // Kết thúc - hiện winner
+        setRollingPerson(null);
+        setRollingCategory(null);
+        setRevealedCategories((prev) => new Set([...prev, categoryId]));
+        return;
+      }
+      setRollingPerson(sequence[step]);
+
+      // Tốc độ chậm dần theo giai đoạn
+      const remaining = sequence.length - step; // số bước còn lại (kể cả winner)
+      let delay;
+      if (remaining > slowTailCount + 1) {
+        // Giai đoạn nhanh: 15-20 người đầu
+        delay = 90 + Math.random() * 400; // 150-250ms
+      } else if (remaining > 1) {
+        // Giai đoạn chậm: 2-4 người cuối trước winner (2-3s mỗi người)
+        delay = 2000 + Math.random() * 1000; // 2000-3000ms
+      } else {
+        // Bước cuối cùng -> winner
+        delay = 4000; // 4s suspense trước khi hiện winner
+      }
+
+      setTimeout(runStep, delay);
+    };
+
+    setTimeout(runStep, 100);
   }
 
   // Loading state
@@ -192,7 +306,7 @@ export default function ResultsPage() {
     );
   }
 
-  // Coming soon state - no winners yet
+  // Coming soon state
   if (winners.length === 0) {
     return (
       <div className="results-page">
@@ -208,196 +322,240 @@ export default function ResultsPage() {
     );
   }
 
-  // Categories with winners
-  const categoriesWithWinners = allCategories.filter((cat) => winners.some((w) => w.category_id === cat.id));
-
-  return (
-    <div className="results-page">
-      {/* Navigation dots */}
-      <div className="results-nav-dots">
-        {categoriesWithWinners.map((cat, index) => (
-          <button key={cat.id} className={`nav-dot ${activeSection === index ? "active" : ""}`} onClick={() => scrollToSection(index)} title={cat.shortName}>
-            <span className="nav-dot-icon">{cat.icon}</span>
-          </button>
-        ))}
-        <button className={`nav-dot ${activeSection === categoriesWithWinners.length ? "active" : ""}`} onClick={() => scrollToSection(categoriesWithWinners.length)} title="Tổng kết">
-          <span className="nav-dot-icon">🏆</span>
-        </button>
-      </div>
-
-      {/* Hero Section */}
-      <section className="results-section results-hero" ref={(el) => (sectionsRef.current[0] = el)}>
-        <div className="results-hero-content">
-          <div className="hero-trophy">🏆</div>
-          <h1 className="hero-title">Vinh Danh B2B Awards 2025</h1>
-          <p className="hero-subtitle">Những cá nhân và dự án xuất sắc nhất của năm</p>
-          <button className="btn btn-gold scroll-cta" onClick={() => scrollToSection(1)}>
-            Xem kết quả
-            <span className="scroll-arrow">↓</span>
-          </button>
+  // Render page content based on index
+  function renderPage(pageIndex) {
+    // Hero page
+    if (pageIndex === 0) {
+      return (
+        <div className="flip-page-inner hero-page">
+          <div className="results-hero-content">
+            <div className="hero-trophy">🏆</div>
+            <h1 className="hero-title">Vinh Danh B2B Awards 2025</h1>
+            <p className="hero-subtitle">Những cá nhân và dự án xuất sắc nhất của năm</p>
+            <button className="btn btn-gold scroll-cta" onClick={nextPage}>
+              Xem kết quả
+              <span className="scroll-arrow">→</span>
+            </button>
+          </div>
         </div>
-      </section>
+      );
+    }
 
-      {/* Winner Sections */}
-      {categoriesWithWinners.map((category, index) => {
-        const winner = getWinnerForCategory(category.id);
-        const predictor = predictorsMap[category.id];
-        const isLoadingPredictor = loadingPredictors[category.id];
-
-        return (
-          <section key={category.id} className={`results-section winner-section section-${index % 2 === 0 ? "even" : "odd"}`} ref={(el) => (sectionsRef.current[index + 1] = el)}>
-            {/* Category Header - Compact */}
-            <div className="category-header-compact">
-              <div className="category-title-row">
-                <span className="category-icon-small">{category.icon}</span>
-                <h2 className="category-name-small">{category.name}</h2>
-              </div>
-              {category.description && <p className="category-description-small">{category.description}</p>}
+    // Summary page (last page)
+    if (pageIndex === totalPages - 1) {
+      return (
+        <div className="flip-page-inner summary-page">
+          <div className="summary-scroll-content">
+            <div className="summary-header">
+              <span className="summary-icon">🔮</span>
+              <h2 className="summary-title">THÁNH DỰ B2B</h2>
             </div>
 
-            {/* Winner Card - 2 Column Layout */}
-            <div className="winner-showcase">
-              {/* Left Column - Profile Info */}
-              <div className="winner-profile-column">
-                <div className="winner-avatar-container">
-                  <img src="/vong_nguyet_que.svg" alt="Laurel wreath" className="laurel-wreath" />
-                  <img src={winner.winner?.url_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(winner.winner?.full_name || "W")}&background=random&size=200`} alt={winner.winner?.full_name} className="winner-avatar" />
-                </div>
-
-                <div className="winner-info">
-                  <h3 className="winner-name">{winner.winner?.full_name || winner.winner?.user_name}</h3>
-                  {CATEGORY_INFO[category.id]?.subtitle && <p className="winner-subtitle">{CATEGORY_INFO[category.id].subtitle}</p>}
-                  {CATEGORY_INFO[category.id]?.description && <p className="winner-profile-description">{CATEGORY_INFO[category.id].description}</p>}
-                  {winner.notes && <p className="winner-description">{winner.notes}</p>}
-                  {winner.actual_vote_count > 0 && (
-                    <div className="winner-votes">
-                      <span className="votes-icon">🗳️</span>
-                      <span>{winner.actual_vote_count} phiếu bầu</span>
+            {/* Top 3 Overall Predictors */}
+            {topPredictors.length > 0 && (
+              <div className="top-predictors-podium">
+                <h3 className="podium-title">Top 3 Thánh Dự Đoán</h3>
+                <div className="podium">
+                  {topPredictors.slice(0, 3).map((predictor, index) => (
+                    <div key={predictor.session_id} className={`podium-item podium-${index + 1}`}>
+                      <div className="podium-medal">{index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}</div>
+                      <img src={predictor.voter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(predictor.voter_name || "U")}&background=random&size=100`} alt={predictor.voter_name} className="podium-avatar" />
+                      <div className="podium-name">{predictor.voter_full_name || predictor.voter_name}</div>
+                      <div className="podium-stats">
+                        <span className="podium-correct">{predictor.correct_count}</span>
+                        <span className="podium-total">/{predictor.total_categories} đúng</span>
+                      </div>
+                      {predictor.earliest_vote_at && (
+                        <div className="podium-time">
+                          {new Date(predictor.earliest_vote_at).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                        </div>
+                      )}
                     </div>
-                  )}
+                  ))}
                 </div>
               </div>
+            )}
 
-              {/* Right Column - Award Photo & Predictor */}
-              <div className="winner-action-column">
-                {/* Award Photo - Large */}
-                {winner.award_photo_url && (
-                  <div className="winner-award-photo-container">
-                    <img src={winner.award_photo_url} alt="Award moment" className="winner-award-photo" />
+            {/* Per-category best predictors */}
+            <div className="category-predictors-section">
+              <h3 className="category-predictors-title">
+                <span>🎯</span> Thánh Dự Theo Từng Hạng Mục
+              </h3>
+              <div className="category-predictors-grid">
+                {categoriesWithWinners.map((category) => {
+                  const predictor = predictorsMap[category.id];
+                  const bestVoter = predictor?.voters?.[0];
+
+                  return (
+                    <div key={category.id} className="cat-predictor-card">
+                      <div className="cat-predictor-header">
+                        <span className="cat-predictor-icon">{category.icon}</span>
+                        <span className="cat-predictor-name">{category.shortName}</span>
+                      </div>
+                      {bestVoter ? (
+                        <div className="cat-predictor-best">
+                          <div className="cat-predictor-voter">
+                            <img src={bestVoter.voter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(bestVoter.voter_name || "U")}&background=random&size=36`} alt="" className="cat-voter-avatar" />
+                            <div className="cat-voter-info">
+                              <div className="cat-voter-name">{bestVoter.voter_full_name || bestVoter.voter_name}</div>
+                              <div className="cat-voter-stats">
+                                Dự đoán: {bestVoter.predicted_count} phiếu
+                                {bestVoter.prediction_diff === 0 ? <span className="exact-match"> ✓ Chính xác!</span> : <span className="diff"> (lệch {bestVoter.prediction_diff})</span>}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="cat-predictor-none">Không có ai dự đoán chính xác</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Category winner pages
+    const catIndex = pageIndex - 1;
+    const category = categoriesWithWinners[catIndex];
+    const winner = getWinnerForCategory(category.id);
+    const predictor = predictorsMap[category.id];
+
+    return (
+      <div className={`flip-page-inner winner-page section-${catIndex % 2 === 0 ? "even" : "odd"}`}>
+        {/* Category Header */}
+        <div className="category-header-compact">
+          <div className="category-title-row">
+            <span className="category-icon-small">{category.icon}</span>
+            <h2 className="category-name-small">{category.name}</h2>
+          </div>
+          {category.description && <p className="category-description-small">{category.description}</p>}
+        </div>
+
+        {/* Winner Card - 2 Column Layout */}
+        <div className="winner-showcase">
+          {/* Left Column - Profile Info */}
+          <div className="winner-profile-column">
+            <div className="winner-avatar-container">
+              <img src="/vong_nguyet_que.svg" alt="Laurel wreath" className="laurel-wreath" />
+              <img src={winner.winner?.url_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(winner.winner?.full_name || "W")}&background=random&size=200`} alt={winner.winner?.full_name} className="winner-avatar" />
+            </div>
+
+            <div className="winner-info">
+              <h3 className="winner-name">{winner.winner?.full_name || winner.winner?.user_name}</h3>
+              {CATEGORY_INFO[category.id]?.subtitle && <p className="winner-subtitle">{CATEGORY_INFO[category.id].subtitle}</p>}
+              {CATEGORY_INFO[category.id]?.description && <p className="winner-profile-description">{CATEGORY_INFO[category.id].description}</p>}
+              {winner.notes && <p className="winner-description">{winner.notes}</p>}
+              {winner.actual_vote_count > 0 && (
+                <div className="winner-votes">
+                  <span className="votes-icon">🗳️</span>
+                  <span>{winner.actual_vote_count} phiếu bầu</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column - Award Photo & Predictor */}
+          <div className="winner-action-column">
+            {winner.award_photo_url && (
+              <div className="winner-award-photo-container">
+                <img src={winner.award_photo_url} alt="Award moment" className="winner-award-photo" />
+              </div>
+            )}
+
+            {/* Predictor Section - with reveal animation */}
+            {predictor && predictor.voters && predictor.voters.length > 0 && (
+              <>
+                {/* Chưa reveal và không đang rolling -> hiện nút */}
+                {!revealedCategories.has(category.id) && rollingCategory !== category.id && (
+                  <button className="reveal-predictor-btn" onClick={() => revealPredictor(category.id)}>
+                    <span className="reveal-btn-icon">🔮</span>
+                    <span>Tìm Thánh Dự Đoán</span>
+                    <span className="reveal-btn-sparkle">✨</span>
+                  </button>
+                )}
+
+                {/* Đang rolling -> hiện slot machine */}
+                {rollingCategory === category.id && rollingPerson && (
+                  <div className="predictor-card predictor-rolling">
+                    <div className="predictor-header">
+                      <span className="predictor-icon">🎰</span>
+                      <span>Đang tìm kiếm...</span>
+                    </div>
+                    <div className="predictor-content rolling-content">
+                      <img src={rollingPerson.voter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(rollingPerson.voter_name || "U")}&background=random&size=60`} alt="" className="predictor-avatar rolling-avatar" key={rollingPerson.voter_name} />
+                      <div className="predictor-info">
+                        <div className="predictor-name rolling-name">{rollingPerson.voter_full_name || rollingPerson.voter_name}</div>
+                        {rollingPerson.voter_username && <div className="predictor-username">@{rollingPerson.voter_username}</div>}
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {/* Predictor Section */}
-                <div className="predictor-section">
-                  {!predictor && !isLoadingPredictor && (
-                    <button className="predictor-reveal-btn" onClick={() => loadPredictorForCategory(category.id)}>
-                      <span className="btn-icon">🔮</span>
-                      Tìm người dự đoán chính xác nhất
-                    </button>
-                  )}
-
-                  {isLoadingPredictor && (
-                    <div className="predictor-loading">
-                      <div className="loading-spinner small"></div>
-                      <span>Đang tìm kiếm...</span>
+                {/* Đã reveal -> hiện kết quả */}
+                {revealedCategories.has(category.id) && (
+                  <div className="predictor-card predictor-revealed">
+                    <div className="predictor-header">
+                      <span className="predictor-icon">🎯</span>
+                      <span>Người dự đoán chính xác nhất</span>
                     </div>
-                  )}
-
-                  {predictor && predictor.voters && predictor.voters.length > 0 && (
-                    <div className="predictor-card">
-                      <div className="predictor-header">
-                        <span className="predictor-icon">🎯</span>
-                        <span>Người dự đoán chính xác nhất</span>
-                      </div>
-                      <div className="predictor-content">
-                        <img src={predictor.voters[0].voter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(predictor.voters[0].voter_name || "U")}&background=random&size=60`} alt={predictor.voters[0].voter_name} className="predictor-avatar" />
-                        <div className="predictor-info">
-                          <div className="predictor-name">{predictor.voters[0].voter_name}</div>
-                          <div className="predictor-stats">
-                            Dự đoán: {predictor.voters[0].predicted_count} phiếu
-                            {predictor.voters[0].prediction_diff === 0 ? <span className="exact-match"> (Chính xác!)</span> : <span className="diff"> (Sai lệch: {predictor.voters[0].prediction_diff})</span>}
-                          </div>
+                    <div className="predictor-content">
+                      <img src={predictor.voters[0].voter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(predictor.voters[0].voter_name || "U")}&background=random&size=60`} alt={predictor.voters[0].voter_name} className="predictor-avatar" />
+                      <div className="predictor-info">
+                        <div className="predictor-name">{predictor.voters[0].voter_full_name}</div>
+                        {predictor.voters[0].voter_username && <div className="predictor-username">@{predictor.voters[0].voter_username}</div>}
+                        <div className="predictor-stats">
+                          Dự đoán: {predictor.voters[0].predicted_count} phiếu
+                          {predictor.voters[0].prediction_diff === 0 ? <span className="exact-match"> (Chính xác!)</span> : <span className="diff"> (Sai lệch: {predictor.voters[0].prediction_diff})</span>}
                         </div>
                       </div>
                     </div>
-                  )}
-
-                  {predictor && (!predictor.voters || predictor.voters.length === 0) && <div className="no-predictor">Chưa có ai dự đoán chính xác cho hạng mục này</div>}
-                </div>
-              </div>
-            </div>
-
-            {/* Scroll Indicator */}
-            {index < categoriesWithWinners.length - 1 && (
-              <div className="scroll-indicator" onClick={() => scrollToSection(index + 2)}>
-                <span>Hạng mục tiếp theo</span>
-                <span className="scroll-arrow">↓</span>
-              </div>
-            )}
-          </section>
-        );
-      })}
-
-      {/* Summary Section */}
-      <section className="results-section results-summary" ref={(el) => (sectionsRef.current[categoriesWithWinners.length + 1] = el)}>
-        <div className="summary-header">
-          <span className="summary-icon">🏆</span>
-          <h2 className="summary-title">Tổng Kết Vinh Danh</h2>
-          <p className="summary-subtitle">Tất cả những người chiến thắng B2B Awards 2025</p>
-        </div>
-
-        {/* Winners Grid */}
-        <div className="summary-winners-grid">
-          {categoriesWithWinners.map((category) => {
-            const winner = getWinnerForCategory(category.id);
-            return (
-              <div key={category.id} className="summary-winner-card">
-                <div className="summary-card-category">
-                  <span className="summary-card-icon">{category.icon}</span>
-                  <span>{category.shortName}</span>
-                </div>
-                <img src={winner.winner?.url_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(winner.winner?.full_name || "W")}&background=random&size=80`} alt={winner.winner?.full_name} className="summary-card-avatar" />
-                <div className="summary-card-name">{winner.winner?.full_name || winner.winner?.user_name}</div>
-                {winner.winner?.role && <div className="summary-card-role">{winner.winner.role}</div>}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Top Predictors */}
-        {topPredictors.length > 0 && (
-          <div className="top-predictors">
-            <h3 className="predictors-title">
-              <span className="predictors-icon">🎯</span>
-              Top Người Dự Đoán Chính Xác Nhất
-            </h3>
-            <div className="predictors-list">
-              {topPredictors.map((predictor, index) => (
-                <div key={predictor.session_id} className="predictor-rank-card">
-                  <div className={`rank-badge rank-${index + 1}`}>{index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`}</div>
-                  <img src={predictor.voter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(predictor.voter_name || "U")}&background=random&size=50`} alt={predictor.voter_name} className="rank-avatar" />
-                  <div className="rank-info">
-                    <div className="rank-name">{predictor.voter_name}</div>
-                    <div className="rank-stats">
-                      {predictor.correct_count}/{predictor.total_categories} đúng ({predictor.accuracy_percent}%)
-                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                )}
+              </>
+            )}
+
+            {predictor && (!predictor.voters || predictor.voters.length === 0) && <div className="no-predictor">Chưa có ai dự đoán chính xác cho hạng mục này</div>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="results-page flip-book">
+      {/* Quick Navigation Bar */}
+      <div className="flip-nav-bar">
+        <div className="flip-nav-items">
+          {categoriesWithWinners.map((cat, index) => (
+            <button key={cat.id} className={`flip-nav-item ${currentPage === index + 1 ? "active" : ""}`} onClick={() => goToPage(index + 1)} title={cat.shortName}>
+              <span className="flip-nav-icon">{cat.icon}</span>
+              <span className="flip-nav-label">{cat.shortName}</span>
+            </button>
+          ))}
+          <button className={`flip-nav-item nav-summary ${currentPage === totalPages - 1 ? "active" : ""}`} onClick={() => goToPage(totalPages - 1)} title="THÁNH DỰ B2B">
+            <span className="flip-nav-icon">🔮</span>
+            <span className="flip-nav-label">Thánh Dự</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Page Container */}
+      <div className="flip-container">
+        {/* Trang cũ đang trượt ra */}
+        {leavingPage !== null && (
+          <div className={`flip-page slide-out-${direction}`} key={`leaving-${leavingPage}`}>
+            {renderPage(leavingPage)}
           </div>
         )}
-
-        {/* CTA */}
-        <div className="summary-cta">
-          <Link to="/" className="btn btn-gold">
-            Về trang chủ
-          </Link>
-          <Link to="/vote" className="btn btn-secondary">
-            Xem các ứng viên
-          </Link>
+        {/* Trang mới trượt vào */}
+        <div className={`flip-page ${isAnimating ? `slide-in-${direction}` : ""}`} key={`current-${currentPage}`}>
+          {renderPage(currentPage)}
         </div>
-      </section>
+      </div>
     </div>
   );
 }

@@ -38,7 +38,7 @@ export default function AdminPage() {
     full_name: "",
     user_name: "",
     url_avatar: "",
-    description: ""
+    description: "",
   });
   const [isSavingUser, setIsSavingUser] = useState(false);
 
@@ -86,7 +86,7 @@ export default function AdminPage() {
       full_name: user.full_name || "",
       user_name: user.user_name || "",
       url_avatar: user.url_avatar || "",
-      description: user.description || ""
+      description: user.description || "",
     });
   };
 
@@ -97,7 +97,7 @@ export default function AdminPage() {
       full_name: "",
       user_name: "",
       url_avatar: "",
-      description: ""
+      description: "",
     });
   };
 
@@ -134,14 +134,14 @@ export default function AdminPage() {
 
     try {
       // Fetch participants from FPT Chat API
-      setAvatarProgress(prev => ({ ...prev, phase: "fetching", currentUser: "Đang lấy dữ liệu từ FPT Chat..." }));
+      setAvatarProgress((prev) => ({ ...prev, phase: "fetching", currentUser: "Đang lấy dữ liệu từ FPT Chat..." }));
       const participants = await fetchFPTChatParticipants(avatarToken);
-      const withAvatar = participants.filter(p => p.avatarUrl && p.username);
+      const withAvatar = participants.filter((p) => p.avatarUrl && p.username);
 
       if (withAvatar.length === 0) {
         setAvatarUpdateResult({
           success: false,
-          message: "Không tìm thấy participants có avatar từ FPT Chat API"
+          message: "Không tìm thấy participants có avatar từ FPT Chat API",
         });
         return;
       }
@@ -150,31 +150,30 @@ export default function AdminPage() {
       setAvatarProgress({ current: 0, total: withAvatar.length, currentUser: "", phase: "updating" });
 
       const result = await bulkUpdateUserAvatars(participants, (progress) => {
-        setAvatarProgress(prev => ({
+        setAvatarProgress((prev) => ({
           ...prev,
           current: progress.current,
           total: progress.total,
-          currentUser: progress.currentUser
+          currentUser: progress.currentUser,
         }));
       });
 
-      setAvatarProgress(prev => ({ ...prev, phase: "done" }));
+      setAvatarProgress((prev) => ({ ...prev, phase: "done" }));
       setAvatarUpdateResult({
         success: true,
         totalParticipants: participants.length,
         withAvatar: withAvatar.length,
-        ...result
+        ...result,
       });
 
       // Refresh admin data
       const updatedUsers = await getAllUsersForAdmin();
       setAdminsData(updatedUsers);
-
     } catch (error) {
       console.error("Error bulk updating avatars:", error);
       setAvatarUpdateResult({
         success: false,
-        message: error.message
+        message: error.message,
       });
     } finally {
       setIsUpdatingAvatars(false);
@@ -269,10 +268,12 @@ export default function AdminPage() {
     // 2. Prepare Votes (Sessions) Data
     const votesSheetData = votesData.map((session, index) => {
       // Format votes details with predicted count
-      const votesDetail = session.votes?.map((v) => {
-        const predictedText = v.predicted_count > 0 ? ` [Dự đoán: ${v.predicted_count} người]` : "";
-        return `${v.category_name}: ${v.nominee?.user_name} (${v.nominee?.role})${predictedText}`;
-      }).join(";\n");
+      const votesDetail = session.votes
+        ?.map((v) => {
+          const predictedText = v.predicted_count > 0 ? ` [Dự đoán: ${v.predicted_count} người]` : "";
+          return `${v.category_name}: ${v.nominee?.user_name} (${v.nominee?.role})${predictedText}`;
+        })
+        .join(";\n");
 
       return {
         STT: index + 1,
@@ -331,7 +332,7 @@ export default function AdminPage() {
       "Email người comment": comment.commenter_email,
       "Ẩn danh": comment.is_anonymous ? "Có" : "Không",
       "Người được comment": comment.nominee?.full_name || comment.nominee?.user_name || "",
-      "Role": comment.nominee?.role || "",
+      Role: comment.nominee?.role || "",
       "Nội dung": comment.content,
       "Thời gian": comment.created_at ? new Date(comment.created_at).toLocaleString("vi-VN") : "",
       "Hiển thị": comment.is_visible ? "Có" : "Không",
@@ -339,7 +340,7 @@ export default function AdminPage() {
 
     const commentsWorksheet = XLSX.utils.json_to_sheet(commentsSheetData);
     const commentsCols = [
-      { wch: 5 },  // STT
+      { wch: 5 }, // STT
       { wch: 25 }, // Nguoi comment
       { wch: 30 }, // Email
       { wch: 10 }, // An danh
@@ -404,12 +405,12 @@ export default function AdminPage() {
         const voterData = voterMap.get(key);
         voterData.total_correct_categories += 1;
         voterData.total_prediction_diff += voter.prediction_diff || 0;
-        
+
         // Cập nhật thời gian dự đoán sớm nhất
         if (voter.first_prediction_time < voterData.earliest_prediction_time) {
           voterData.earliest_prediction_time = voter.first_prediction_time;
         }
-        
+
         voterData.categories_details.push({
           category_id: catResult.category_id,
           category_name: catResult.category_name,
@@ -744,11 +745,7 @@ export default function AdminPage() {
                           {adminUser.id === voteUser?.id && <span style={{ fontSize: "0.75em", color: "#888", display: "block", marginTop: "4px" }}>(You)</span>}
                         </td>
                         <td style={{ textAlign: "center" }}>
-                          <button
-                            className="edit-user-btn"
-                            onClick={() => handleOpenEditUser(adminUser)}
-                            title="Chỉnh sửa thông tin user"
-                          >
+                          <button className="edit-user-btn" onClick={() => handleOpenEditUser(adminUser)} title="Chỉnh sửa thông tin user">
                             ✏️
                           </button>
                         </td>
@@ -951,10 +948,7 @@ export default function AdminPage() {
 
           {activeTab === "results" && (
             <div className="card">
-              <HonoreeManager
-                allNominees={allNominees}
-                currentUser={voteUser}
-              />
+              <HonoreeManager allNominees={allNominees} currentUser={voteUser} />
             </div>
           )}
         </div>
@@ -966,18 +960,14 @@ export default function AdminPage() {
           <div className="modal-content edit-user-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>✏️ Chỉnh sửa thông tin User</h3>
-              <button className="modal-close-btn" onClick={handleCloseEditUser}>×</button>
+              <button className="modal-close-btn" onClick={handleCloseEditUser}>
+                ×
+              </button>
             </div>
 
             <div className="modal-body">
               <div className="edit-user-preview">
-                {editUserForm.url_avatar ? (
-                  <img src={editUserForm.url_avatar} alt="Avatar preview" className="avatar-preview" />
-                ) : (
-                  <div className="avatar-preview-placeholder">
-                    {editUserForm.full_name?.[0]?.toUpperCase() || editUserForm.user_name?.[0]?.toUpperCase() || "?"}
-                  </div>
-                )}
+                {editUserForm.url_avatar ? <img src={editUserForm.url_avatar} alt="Avatar preview" className="avatar-preview" /> : <div className="avatar-preview-placeholder">{editUserForm.full_name?.[0]?.toUpperCase() || editUserForm.user_name?.[0]?.toUpperCase() || "?"}</div>}
                 <div className="preview-info">
                   <div className="preview-name">{editUserForm.full_name || editUserForm.user_name || "Chưa có tên"}</div>
                   <div className="preview-username">@{editUserForm.user_name || "username"}</div>
@@ -986,46 +976,22 @@ export default function AdminPage() {
 
               <div className="edit-form-group">
                 <label className="edit-form-label">Tên hiển thị (Full Name)</label>
-                <input
-                  type="text"
-                  className="edit-form-input"
-                  value={editUserForm.full_name}
-                  onChange={(e) => setEditUserForm(prev => ({ ...prev, full_name: e.target.value }))}
-                  placeholder="Nhập tên hiển thị"
-                />
+                <input type="text" className="edit-form-input" value={editUserForm.full_name} onChange={(e) => setEditUserForm((prev) => ({ ...prev, full_name: e.target.value }))} placeholder="Nhập tên hiển thị" />
               </div>
 
               <div className="edit-form-group">
                 <label className="edit-form-label">Username</label>
-                <input
-                  type="text"
-                  className="edit-form-input"
-                  value={editUserForm.user_name}
-                  onChange={(e) => setEditUserForm(prev => ({ ...prev, user_name: e.target.value }))}
-                  placeholder="Nhập username"
-                />
+                <input type="text" className="edit-form-input" value={editUserForm.user_name} onChange={(e) => setEditUserForm((prev) => ({ ...prev, user_name: e.target.value }))} placeholder="Nhập username" />
               </div>
 
               <div className="edit-form-group">
                 <label className="edit-form-label">URL Avatar</label>
-                <input
-                  type="text"
-                  className="edit-form-input"
-                  value={editUserForm.url_avatar}
-                  onChange={(e) => setEditUserForm(prev => ({ ...prev, url_avatar: e.target.value }))}
-                  placeholder="https://example.com/avatar.jpg"
-                />
+                <input type="text" className="edit-form-input" value={editUserForm.url_avatar} onChange={(e) => setEditUserForm((prev) => ({ ...prev, url_avatar: e.target.value }))} placeholder="https://example.com/avatar.jpg" />
               </div>
 
               <div className="edit-form-group">
                 <label className="edit-form-label">Mô tả (Description)</label>
-                <textarea
-                  className="edit-form-input edit-form-textarea"
-                  value={editUserForm.description}
-                  onChange={(e) => setEditUserForm(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Nhập mô tả về user"
-                  rows={3}
-                />
+                <textarea className="edit-form-input edit-form-textarea" value={editUserForm.description} onChange={(e) => setEditUserForm((prev) => ({ ...prev, description: e.target.value }))} placeholder="Nhập mô tả về user" rows={3} />
               </div>
             </div>
 
@@ -1047,42 +1013,32 @@ export default function AdminPage() {
           <div className="modal-content avatar-update-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>🖼️ Cập nhật Avatar hàng loạt</h3>
-              <button className="modal-close-btn" onClick={handleCloseAvatarModal}>×</button>
+              <button className="modal-close-btn" onClick={handleCloseAvatarModal}>
+                ×
+              </button>
             </div>
 
             <div className="modal-body">
-              <p style={{ color: "#888", marginBottom: "1rem", fontSize: "0.9rem" }}>
-                Nhập FPT Chat Token để lấy avatar từ FPT Chat và cập nhật cho users có username trùng khớp.
-              </p>
+              <p style={{ color: "#888", marginBottom: "1rem", fontSize: "0.9rem" }}>Nhập FPT Chat Token để lấy avatar từ FPT Chat và cập nhật cho users có username trùng khớp.</p>
 
               <div className="edit-form-group">
                 <label className="edit-form-label">FPT Chat Token</label>
-                <input
-                  type="text"
-                  className="edit-form-input"
-                  value={avatarToken}
-                  onChange={(e) => setAvatarToken(e.target.value)}
-                  placeholder="Nhập Bearer Token từ FPT Chat"
-                  disabled={isUpdatingAvatars}
-                />
+                <input type="text" className="edit-form-input" value={avatarToken} onChange={(e) => setAvatarToken(e.target.value)} placeholder="Nhập Bearer Token từ FPT Chat" disabled={isUpdatingAvatars} />
               </div>
 
               {/* Progress Display */}
               {isUpdatingAvatars && (
                 <div className="avatar-progress">
-                  <div className="progress-header">
-                    {avatarProgress.phase === "fetching" ? "🔄 Đang lấy dữ liệu..." : "⏳ Đang cập nhật avatar..."}
-                  </div>
+                  <div className="progress-header">{avatarProgress.phase === "fetching" ? "🔄 Đang lấy dữ liệu..." : "⏳ Đang cập nhật avatar..."}</div>
                   {avatarProgress.phase === "updating" && avatarProgress.total > 0 && (
                     <>
                       <div className="progress-bar-container">
-                        <div
-                          className="progress-bar-fill"
-                          style={{ width: `${(avatarProgress.current / avatarProgress.total) * 100}%` }}
-                        />
+                        <div className="progress-bar-fill" style={{ width: `${(avatarProgress.current / avatarProgress.total) * 100}%` }} />
                       </div>
                       <div className="progress-info">
-                        <span className="progress-count">{avatarProgress.current} / {avatarProgress.total}</span>
+                        <span className="progress-count">
+                          {avatarProgress.current} / {avatarProgress.total}
+                        </span>
                         <span className="progress-user">@{avatarProgress.currentUser}</span>
                       </div>
                     </>
@@ -1097,7 +1053,7 @@ export default function AdminPage() {
 
               {/* Update Result */}
               {avatarUpdateResult && (
-                <div className={`avatar-update-result ${avatarUpdateResult.success ? 'success' : 'error'}`}>
+                <div className={`avatar-update-result ${avatarUpdateResult.success ? "success" : "error"}`}>
                   {avatarUpdateResult.success ? (
                     <>
                       <div className="result-header">✅ Cập nhật thành công!</div>
@@ -1127,7 +1083,9 @@ export default function AdminPage() {
                         <div className="result-errors">
                           <div className="error-header">⚠️ Lỗi ({avatarUpdateResult.errors.length}):</div>
                           {avatarUpdateResult.errors.slice(0, 5).map((err, i) => (
-                            <div key={i} className="error-item">{err.username}: {err.error}</div>
+                            <div key={i} className="error-item">
+                              {err.username}: {err.error}
+                            </div>
                           ))}
                         </div>
                       )}

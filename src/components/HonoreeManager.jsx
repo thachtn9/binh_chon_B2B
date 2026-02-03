@@ -272,7 +272,6 @@ export default function HonoreeManager({ allNominees, currentUser }) {
       }));
 
       handleCloseModal();
-      alert("Lưu thành công!");
     } catch (error) {
       console.error("Error saving winner:", error);
       alert("Có lỗi xảy ra: " + error.message);

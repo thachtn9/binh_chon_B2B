@@ -713,6 +713,8 @@ export async function updateUserProfile(userId, profileData) {
 
 /**
  * Find users who predicted correctly based on selected winners
+ * Logic: Group by voter (person), count unique correct categories,
+ * tiebreak by earliest prediction time (first vote created_at)
  * @param {Object} winners - Object mapping category_id to winner nominee_id
  * @returns {Array} - Array of users with their correct prediction counts
  */
@@ -722,7 +724,7 @@ export async function findCorrectPredictions(winners) {
   }
 
   try {
-    // Get all votes with session and voter info
+    // Get all votes with voter info
     const { data: allVotes, error } = await supabase
       .from("votes")
       .select(
@@ -734,78 +736,101 @@ export async function findCorrectPredictions(winners) {
         category_id,
         category_name,
         nominee_id,
+        created_at,
         vote_sessions (
           id,
           voter_name,
           voter_email,
           total_amount,
           created_at
+        ),
+        users:voter_id (
+          id,
+          user_name,
+          full_name,
+          url_avatar
         )
       `
       )
-      .order("session_id");
+      .order("created_at", { ascending: true });
 
     if (error) {
       console.error("Error fetching votes:", error);
       return [];
     }
 
-    // Group votes by session
-    const sessionMap = new Map();
+    // Group votes by voter (person), not by session
+    const voterMap = new Map();
 
     allVotes.forEach((vote) => {
-      const sessionId = vote.session_id;
-      if (!sessionMap.has(sessionId)) {
-        sessionMap.set(sessionId, {
-          session_id: sessionId,
-          voter_id: vote.voter_id,
-          voter_name: vote.vote_sessions?.voter_name || "Unknown",
+      const voterId = vote.voter_id;
+      if (!voterMap.has(voterId)) {
+        voterMap.set(voterId, {
+          voter_id: voterId,
+          session_id: vote.session_id,
+          voter_name: vote.vote_sessions?.voter_name || vote.users?.full_name || "Unknown",
+          voter_full_name: vote.users?.full_name || "",
+          voter_username: vote.users?.user_name || "",
+          voter_avatar: vote.users?.url_avatar,
           voter_email: vote.voter_email || vote.vote_sessions?.voter_email,
           total_amount: vote.vote_sessions?.total_amount || 0,
-          created_at: vote.vote_sessions?.created_at,
-          votes: [],
+          earliest_vote_at: vote.created_at,
+          votes: new Map(), // category_id -> latest vote (to handle re-votes)
           correct_count: 0,
           total_categories: 0,
         });
       }
 
-      const session = sessionMap.get(sessionId);
-      session.votes.push({
-        category_id: vote.category_id,
-        category_name: vote.category_name,
-        nominee_id: vote.nominee_id,
-      });
+      const voter = voterMap.get(voterId);
+
+      // Track earliest vote time for this voter
+      if (vote.created_at < voter.earliest_vote_at) {
+        voter.earliest_vote_at = vote.created_at;
+      }
+
+      // Keep the latest vote per category (in case of re-votes)
+      const existing = voter.votes.get(vote.category_id);
+      if (!existing || vote.created_at > existing.created_at) {
+        voter.votes.set(vote.category_id, {
+          category_id: vote.category_id,
+          category_name: vote.category_name,
+          nominee_id: vote.nominee_id,
+          created_at: vote.created_at,
+        });
+      }
     });
 
-    // Calculate correct predictions for each session
+    // Calculate correct predictions for each voter
     const results = [];
     const totalWinnerCategories = Object.keys(winners).length;
 
-    sessionMap.forEach((session) => {
+    voterMap.forEach((voter) => {
       let correctCount = 0;
       const correctCategories = [];
 
-      session.votes.forEach((vote) => {
+      voter.votes.forEach((vote) => {
         if (winners[vote.category_id] && winners[vote.category_id] === vote.nominee_id) {
           correctCount++;
           correctCategories.push(vote.category_name);
         }
       });
 
-      session.correct_count = correctCount;
-      session.total_categories = session.votes.length;
-      session.correct_categories = correctCategories;
-      session.accuracy_percent = totalWinnerCategories > 0 ? Math.round((correctCount / totalWinnerCategories) * 100) : 0;
+      voter.correct_count = correctCount;
+      voter.total_categories = voter.votes.size;
+      voter.correct_categories = correctCategories;
+      voter.accuracy_percent = totalWinnerCategories > 0 ? Math.round((correctCount / totalWinnerCategories) * 100) : 0;
+      // For backward compatibility with ResultsPage display
+      voter.created_at = voter.earliest_vote_at;
 
-      results.push(session);
+      results.push(voter);
     });
 
-    // Sort by correct count (descending), then by created_at (ascending for earlier predictions)
+    // Sort by correct count (descending), then by earliest vote time (ascending)
     results.sort((a, b) => {
       if (b.correct_count !== a.correct_count) {
         return b.correct_count - a.correct_count;
       }
-      return new Date(a.created_at) - new Date(b.created_at);
+      return new Date(a.earliest_vote_at) - new Date(b.earliest_vote_at);
     });
 
     return results;
@@ -884,6 +909,8 @@ export async function findCorrectPredictionsByCategory(winners) {
             voter_id: vote.voter_id,
             voter_email: vote.voter_email,
             voter_name: vote.vote_sessions?.voter_name || vote.users?.full_name || vote.users?.user_name || "Unknown",
+            voter_full_name: vote.users?.full_name || "",
+            voter_username: vote.users?.user_name || "",
             voter_avatar: vote.users?.url_avatar,
             predicted_count: vote.predicted_count || 0,
             last_prediction_time: vote.created_at, // Lấy time từ bảng votes

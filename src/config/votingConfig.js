@@ -39,7 +39,7 @@ export const categories = [
   },
   {
     id: "innovator",
-    name: "The Innovator",
+    name: "The Innovator & AI Pioneer",
     description: "Tiên phong Đổi mới - Dành cho người có sáng kiến công nghệ/ứng dụng AI hiệu quả và truyền cảm hứng",
     icon: "🚀",
     type: "individual",

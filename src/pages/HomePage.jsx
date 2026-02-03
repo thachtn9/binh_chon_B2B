@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { fetchNominees, addComment, fetchAllComments, fetchNomineeByIdFresh, fetchCommentsWithProfile, fetchYEBSponsorship, formatCurrency } from "../lib/supabase";
 import NomineeDetailModal from "../components/NomineeDetailModal";
+import ProfileSlideshow from "../components/ProfileSlideshow";
 
 // Hook để theo dõi visibility của element với Intersection Observer
 function useIntersectionObserver(options = {}) {
@@ -241,6 +242,7 @@ export default function HomePage() {
   const [yebTotal, setYebTotal] = useState(null);
   const [yebLoading, setYebLoading] = useState(true);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
 
   // Lazy load intersection observer
   const { visibleItems, observe } = useIntersectionObserver();
@@ -586,6 +588,9 @@ export default function HomePage() {
             <div className="container">
               <h2 className="nominees-section-title" id="nominees-section-title">
                 👤 Danh sách profile ({nominees.length} người)
+                <button className="slideshow-btn" onClick={() => setIsSlideshowOpen(true)} title="Xem slideshow profile">
+                  ▶ Slideshow
+                </button>
                 {!isSearchVisible && (
                   <span className="search-keyboard-hint" onClick={() => setIsSearchVisible(true)}>
                     ⌨️ Nhấn phím bất kỳ để tìm kiếm
@@ -664,6 +669,9 @@ export default function HomePage() {
 
       {/* QR Donate Modal */}
       <QRDonateModal isOpen={isQRModalOpen} onClose={() => setIsQRModalOpen(false)} user={user} />
+
+      {/* Profile Slideshow */}
+      {isSlideshowOpen && <ProfileSlideshow nominees={nominees} comments={comments} onClose={() => setIsSlideshowOpen(false)} />}
     </main>
   );
 }
