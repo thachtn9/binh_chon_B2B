@@ -248,6 +248,7 @@ export async function getSettings() {
       event_name: data.event_name,
       event_description: data.event_description,
       is_active: data.is_active,
+      show_top_predictors: data.show_top_predictors || false,
     };
   } catch (err) {
     console.error("Error fetching settings:", err);
@@ -273,6 +274,7 @@ export async function updateSettings(settings) {
       event_name: settings.event_name,
       event_description: settings.event_description,
       is_active: settings.is_active,
+      show_top_predictors: settings.show_top_predictors,
     })
     .eq("key", "voting_config")
     .select()

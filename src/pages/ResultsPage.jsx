@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getCategoryWinners, findCorrectPredictionsByCategory, findCorrectPredictions, getAllUsersForAdmin, getSettings } from "../lib/supabase";
@@ -55,10 +55,10 @@ function getAllCategoriesOrdered() {
   const shortNames = {
     "tech-leader": "Tech Lead",
     "unsung-hero": "Silent Hero",
-    "innovator": "AI Pioneer",
+    innovator: "AI Pioneer",
     "peoples-choice": "People's Choice",
     "dream-team": "Project",
-    "challenger": "Challenger",
+    challenger: "Challenger",
   };
 
   const result = [];
@@ -67,7 +67,7 @@ function getAllCategoriesOrdered() {
       cat.sub_categories.forEach((sub) => {
         result.push({
           id: sub.id,
-          name: `${cat.name} - ${sub.label}`,
+          name: `${sub.label}`,
           shortName: sub.name, // Dùng tên ngắn: PM, BA, DEV (1), DEV (2)
           description: cat.description,
           icon: cat.icon,
@@ -90,6 +90,113 @@ function getAllCategoriesOrdered() {
   return result;
 }
 
+/**
+ * Đảm bảo mỗi người chỉ nhận tối đa 1 giải "Thánh Dự" trên toàn bộ hạng mục.
+ * Nếu người đứng đầu đã nhận giải ở hạng mục trước, chọn người tiếp theo hợp lệ.
+ */
+function assignUniquePredictors(categoryResults, orderedCategories) {
+  const usedVoterIds = new Set();
+  const processed = { ...categoryResults };
+
+  orderedCategories.forEach((cat) => {
+    const result = processed[cat.id];
+    if (!result?.voters?.length) return;
+
+    // Tìm người đầu tiên chưa nhận giải ở hạng mục khác
+    const assignedIndex = result.voters.findIndex((v) => !usedVoterIds.has(v.voter_id || v.voter_email));
+
+    if (assignedIndex >= 0) {
+      const assignedVoter = result.voters[assignedIndex];
+      usedVoterIds.add(assignedVoter.voter_id || assignedVoter.voter_email);
+
+      // Đưa người được chọn lên vị trí đầu tiên
+      if (assignedIndex > 0) {
+        const reordered = [...result.voters];
+        reordered.splice(assignedIndex, 1);
+        reordered.unshift(assignedVoter);
+        processed[cat.id] = { ...result, voters: reordered };
+      }
+    } else {
+      // Tất cả đều đã nhận giải -> không có ai cho hạng mục này
+      processed[cat.id] = { ...result, voters: [] };
+    }
+  });
+
+  return processed;
+}
+
+// Canvas fireworks animation
+function runFireworks(canvas) {
+  const ctx = canvas.getContext("2d");
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+
+  const particles = [];
+  const colors = ["#fbbf24", "#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#a855f7", "#ec4899", "#fff"];
+
+  function createBurst(x, y) {
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const count = 30 + Math.floor(Math.random() * 20);
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+      const speed = Math.random() * 4 + 2;
+      particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        alpha: 1,
+        decay: Math.random() * 0.015 + 0.008,
+        size: Math.random() * 3 + 1,
+        color,
+      });
+    }
+  }
+
+  let animId;
+  let lastBurst = 0;
+
+  function animate(time) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (time - lastBurst > 600 + Math.random() * 800) {
+      createBurst(Math.random() * canvas.width * 0.8 + canvas.width * 0.1, Math.random() * canvas.height * 0.5 + canvas.height * 0.1);
+      lastBurst = time;
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.04;
+      p.alpha -= p.decay;
+
+      if (p.alpha <= 0) {
+        particles.splice(i, 1);
+        continue;
+      }
+
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.globalAlpha = 1;
+    animId = requestAnimationFrame(animate);
+  }
+
+  // Initial bursts
+  createBurst(canvas.width * 0.3, canvas.height * 0.25);
+  createBurst(canvas.width * 0.7, canvas.height * 0.2);
+  createBurst(canvas.width * 0.5, canvas.height * 0.35);
+
+  animId = requestAnimationFrame(animate);
+  return () => cancelAnimationFrame(animId);
+}
+
 export default function ResultsPage() {
   const { voteUser } = useAuth();
   const [winners, setWinners] = useState([]);
@@ -107,6 +214,9 @@ export default function ResultsPage() {
   const [revealedCategories, setRevealedCategories] = useState(new Set());
   const [rollingCategory, setRollingCategory] = useState(null);
   const [rollingPerson, setRollingPerson] = useState(null);
+
+  // Fireworks canvas ref
+  const fireworksCanvasRef = useRef(null);
 
   const allCategories = getAllCategoriesOrdered();
 
@@ -135,6 +245,12 @@ export default function ResultsPage() {
   const nextPage = useCallback(() => goToPage(currentPage + 1), [currentPage, goToPage]);
   const prevPage = useCallback(() => goToPage(currentPage - 1), [currentPage, goToPage]);
 
+  // Ẩn header và footer khi ở trang results
+  useEffect(() => {
+    document.body.classList.add("results-active");
+    return () => document.body.classList.remove("results-active");
+  }, []);
+
   useEffect(() => {
     loadWinners();
   }, []);
@@ -153,6 +269,17 @@ export default function ResultsPage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [nextPage, prevPage]);
+
+  // Fireworks effect on summary page when champion exists
+  useEffect(() => {
+    const hasChampion = topPredictors.length > 0 && topPredictors[0]?.correct_count >= 6;
+    const isOnSummaryPage = currentPage === totalPages - 1;
+
+    if (!hasChampion || !isOnSummaryPage || !fireworksCanvasRef.current || !settings?.show_top_predictors) return;
+
+    const cleanup = runFireworks(fireworksCanvasRef.current);
+    return cleanup;
+  }, [currentPage, totalPages, topPredictors, settings]);
 
   // Check admin access
   if (!voteUser?.is_admin) {
@@ -189,7 +316,10 @@ export default function ResultsPage() {
 
         // Load all category predictors for summary page
         const categoryResults = await findCorrectPredictionsByCategory(winnersObj);
-        setPredictorsMap(categoryResults || {});
+        // Đảm bảo mỗi người chỉ nhận tối đa 1 giải Thánh Dự
+        const catsWithWins = allCategories.filter((cat) => winnersObj[cat.id]);
+        const processedResults = assignUniquePredictors(categoryResults || {}, catsWithWins);
+        setPredictorsMap(processedResults);
       }
     } catch (error) {
       console.error("Error loading winners:", error);
@@ -363,8 +493,13 @@ export default function ResultsPage() {
 
     // Summary page (last page)
     if (pageIndex === totalPages - 1) {
+      const hasChampion = topPredictors.length > 0 && topPredictors[0]?.correct_count >= 6;
+
       return (
         <div className="flip-page-inner summary-page">
+          {/* Fireworks canvas overlay when champion exists */}
+          {hasChampion && settings?.show_top_predictors && <canvas ref={fireworksCanvasRef} className="fireworks-canvas" />}
+
           <div className="summary-scroll-content">
             <div className="summary-header">
               <span className="summary-icon">🔮</span>
@@ -373,25 +508,47 @@ export default function ResultsPage() {
 
             {/* Top 3 Overall Predictors - controlled by settings */}
             {settings?.show_top_predictors && topPredictors.length > 0 && (
-              <div className="top-predictors-podium">
-                <h3 className="podium-title">Top 3 Thánh Dự Đoán</h3>
+              <div className={`top-predictors-podium ${hasChampion ? "has-champion" : ""}`}>
+                {hasChampion && <div className="champion-banner">Chúc mừng Thánh Dự B2B!</div>}
+                <h3 className="podium-title">Top 3 Thánh Dự B2B</h3>
                 <div className="podium">
-                  {topPredictors.slice(0, 3).map((predictor, index) => (
-                    <div key={predictor.session_id} className={`podium-item podium-${index + 1}`}>
-                      <div className="podium-medal">{index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}</div>
-                      <img src={predictor.voter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(predictor.voter_name || "U")}&background=random&size=100`} alt={predictor.voter_name} className="podium-avatar" />
-                      <div className="podium-name">{predictor.voter_full_name || predictor.voter_name}</div>
-                      <div className="podium-stats">
-                        <span className="podium-correct">{predictor.correct_count}</span>
-                        <span className="podium-total">/{predictor.total_categories} đúng</span>
-                      </div>
-                      {predictor.earliest_vote_at && (
-                        <div className="podium-time">
-                          {new Date(predictor.earliest_vote_at).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  {hasChampion ? (
+                    // Champion exists: show all 3 normally
+                    topPredictors.slice(0, 3).map((predictor, index) => (
+                      <div key={predictor.session_id} className={`podium-item podium-${index + 1} ${index === 0 ? "champion-item" : ""}`}>
+                        <div className="podium-medal">{index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}</div>
+                        <img src={predictor.voter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(predictor.voter_name || "U")}&background=random&size=100`} alt={predictor.voter_name} className="podium-avatar" />
+                        <div className="podium-name">{predictor.voter_full_name || predictor.voter_name}</div>
+                        <div className="podium-stats">
+                          <span className="podium-correct">{predictor.correct_count}</span>
+                          <span className="podium-total">/{predictor.total_categories} đúng</span>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        {predictor.earliest_vote_at && <div className="podium-time">{new Date(predictor.earliest_vote_at).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>}
+                      </div>
+                    ))
+                  ) : (
+                    // No champion: TOP 1 empty, show remaining as TOP 2, TOP 3
+                    <>
+                      <div className="podium-item podium-1 podium-empty">
+                        <div className="podium-medal">🥇</div>
+                        <div className="podium-empty-avatar">?</div>
+                        <div className="podium-empty-text">Chưa có ai</div>
+                        <div className="podium-empty-desc">Cần đúng từ 6 hạng mục trở lên</div>
+                      </div>
+                      {topPredictors.slice(0, 2).map((predictor, index) => (
+                        <div key={predictor.session_id} className={`podium-item podium-${index + 2}`}>
+                          <div className="podium-medal">{index === 0 ? "🥈" : "🥉"}</div>
+                          <img src={predictor.voter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(predictor.voter_name || "U")}&background=random&size=100`} alt={predictor.voter_name} className="podium-avatar" />
+                          <div className="podium-name">{predictor.voter_full_name || predictor.voter_name}</div>
+                          <div className="podium-stats">
+                            <span className="podium-correct">{predictor.correct_count}</span>
+                            <span className="podium-total">/{predictor.total_categories} đúng</span>
+                          </div>
+                          {predictor.earliest_vote_at && <div className="podium-time">{new Date(predictor.earliest_vote_at).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</div>}
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -550,6 +707,10 @@ export default function ResultsPage() {
       {/* Quick Navigation Bar */}
       <div className="flip-nav-bar">
         <div className="flip-nav-items">
+          <Link to="/" className="flip-nav-item nav-back" title="Về trang chủ">
+            <span className="flip-nav-icon">🏠</span>
+            <span className="flip-nav-label">Trang chủ</span>
+          </Link>
           {categoriesWithWinners.map((cat, index) => (
             <button key={cat.id} className={`flip-nav-item ${currentPage === index + 1 ? "active" : ""}`} onClick={() => goToPage(index + 1)} title={cat.shortName}>
               <span className="flip-nav-icon">{cat.icon}</span>

@@ -2,6 +2,12 @@
    RESULTS PAGE - FLIP BOOK STYLE
    ============================================= */
 
+/* Ẩn header và footer khi ở trang results */
+body.results-active .header,
+body.results-active .footer {
+  display: none !important;
+}
+
 .results-page {
   min-height: 100vh;
   background: var(--bg-darkest);
@@ -233,8 +239,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: start;
-  padding: 5rem;
+  justify-content: center;
+  padding: 4.5rem 2rem 2rem;
   overflow-y: auto;
   position: relative;
 }
@@ -335,7 +341,7 @@
    ============================================= */
 
 .winner-page {
-  padding: 1.5rem 2rem;
+  padding: 4.5rem 2rem 1.5rem;
 }
 
 .winner-page.section-even {
@@ -658,8 +664,94 @@
 .summary-page {
   background: linear-gradient(180deg, var(--bg-dark) 0%, var(--bg-darkest) 100%);
   justify-content: flex-start;
-  padding-top: 0.5rem;
-  overflow: hidden;
+  padding-top: 4.5rem;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* Fireworks Canvas Overlay */
+.fireworks-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Champion Banner */
+.champion-banner {
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-align: center;
+  padding: 0.75rem 2rem;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(245, 158, 11, 0.1) 100%);
+  border: 2px solid var(--gold);
+  border-radius: 9999px;
+  color: var(--gold);
+  margin-bottom: 0.75rem;
+  animation: championPulse 2s ease-in-out infinite;
+  text-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+}
+
+@keyframes championPulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(251, 191, 36, 0.6);
+    transform: scale(1.02);
+  }
+}
+
+/* Champion podium highlight */
+.has-champion .champion-item {
+  border-color: #fbbf24 !important;
+  box-shadow: 0 0 40px rgba(251, 191, 36, 0.3), 0 0 80px rgba(251, 191, 36, 0.15);
+  animation: championGlow 2s ease-in-out infinite;
+}
+
+@keyframes championGlow {
+  0%, 100% {
+    box-shadow: 0 0 30px rgba(251, 191, 36, 0.3), 0 0 60px rgba(251, 191, 36, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 50px rgba(251, 191, 36, 0.5), 0 0 100px rgba(251, 191, 36, 0.2);
+  }
+}
+
+/* Empty podium slot (no champion) */
+.podium-empty {
+  border-style: dashed !important;
+  border-color: rgba(156, 163, 175, 0.4) !important;
+  background: rgba(156, 163, 175, 0.05) !important;
+  box-shadow: none !important;
+}
+
+.podium-empty-avatar {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 2px dashed rgba(156, 163, 175, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: var(--text-muted);
+  background: rgba(156, 163, 175, 0.08);
+}
+
+.podium-empty-text {
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.podium-empty-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0.7;
 }
 
 .summary-scroll-content {
