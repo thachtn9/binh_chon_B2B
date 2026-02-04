@@ -611,24 +611,26 @@ export default function HomePage() {
             <div className="container">
               <h2 className="nominees-section-title" id="nominees-section-title">
                 👤 Danh sách profile ({nominees.length} người)
-                <button
-                  className="slideshow-btn"
-                  onClick={() => setIsSlideshowOpen(true)}
-                  onMouseEnter={() => {
-                    import("../config/slideshowConfig").then(({ default: config }) => {
-                      config.openingSlides
-                        .filter((s) => s.url && s.url.trim() !== "")
-                        .slice(0, 3)
-                        .forEach((slide) => {
-                          const img = new Image();
-                          img.src = slide.url;
-                        });
-                    });
-                  }}
-                  title="Xem slideshow profile"
-                >
-                  ▶ Slideshow
-                </button>
+                {voteUser?.is_admin && (
+                  <button
+                    className="slideshow-btn"
+                    onClick={() => setIsSlideshowOpen(true)}
+                    onMouseEnter={() => {
+                      import("../config/slideshowConfig").then(({ default: config }) => {
+                        config.openingSlides
+                          .filter((s) => s.url && s.url.trim() !== "")
+                          .slice(0, 3)
+                          .forEach((slide) => {
+                            const img = new Image();
+                            img.src = slide.url;
+                          });
+                      });
+                    }}
+                    title="Xem slideshow profile"
+                  >
+                    ▶ Slideshow
+                  </button>
+                )}
                 {!isSearchVisible && (
                   <span className="search-keyboard-hint" onClick={() => setIsSearchVisible(true)}>
                     ⌨️ Nhấn phím bất kỳ để tìm kiếm
