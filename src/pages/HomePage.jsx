@@ -283,7 +283,7 @@ export default function HomePage() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Ignore if modal is open, or if user is in an input/textarea
-      if (isModalOpen || isQRModalOpen) return;
+      if (isModalOpen || isQRModalOpen || isSlideshowOpen) return;
       const target = e.target;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
 
@@ -311,7 +311,7 @@ export default function HomePage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isModalOpen, isQRModalOpen, isSearchVisible, scrollToNomineesTitle]);
+  }, [isModalOpen, isQRModalOpen, isSlideshowOpen, isSearchVisible, scrollToNomineesTitle]);
 
   // Focus search input when it becomes visible
   useEffect(() => {

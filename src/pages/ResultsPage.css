@@ -395,8 +395,8 @@ body.results-active .footer {
   align-items: stretch;
   gap: 4rem;
   margin-bottom: 1rem;
-  max-width: 1100px;
-  width: 100%;
+  max-width: none;
+  width: 90%;
   padding: 0 2rem;
 }
 
@@ -548,9 +548,8 @@ body.results-active .footer {
 
 .winner-award-photo {
   width: 100%;
-  max-width: 590px;
-  height: auto;
-  max-height: 450px;
+  max-width: 800px;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
   border-radius: 1rem;
   border: 3px solid var(--gold);
@@ -695,10 +694,13 @@ body.results-active .footer {
 }
 
 @keyframes championPulse {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
     transform: scale(1);
   }
+
   50% {
     box-shadow: 0 0 40px rgba(251, 191, 36, 0.6);
     transform: scale(1.02);
@@ -713,9 +715,12 @@ body.results-active .footer {
 }
 
 @keyframes championGlow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 30px rgba(251, 191, 36, 0.3), 0 0 60px rgba(251, 191, 36, 0.1);
   }
+
   50% {
     box-shadow: 0 0 50px rgba(251, 191, 36, 0.5), 0 0 100px rgba(251, 191, 36, 0.2);
   }

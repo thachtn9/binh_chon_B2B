@@ -432,10 +432,10 @@ export default function ResultsPage() {
         delay = 90 + Math.random() * 400; // 150-250ms
       } else if (remaining > 1) {
         // Giai đoạn chậm: 2-4 người cuối trước winner (2-3s mỗi người)
-        delay = 2000 + Math.random() * 1000; // 2000-3000ms
+        delay = 1500 + Math.random() * 1000; // 2000-3000ms
       } else {
         // Bước cuối cùng -> winner
-        delay = 4000; // 4s suspense trước khi hiện winner
+        delay = 3000; // 4s suspense trước khi hiện winner
       }
 
       setTimeout(runStep, delay);

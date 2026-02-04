@@ -83,6 +83,11 @@ function ProfileImageSlide({ slide }) {
         onLoad={() => setLoaded(true)}
         draggable={false}
       />
+      {/* Like count badge ở góc phải trên */}
+      <div className="slideshow-profile-like-badge">
+        <span className="slideshow-profile-like-icon">❤️</span>
+        <span className="slideshow-profile-like-count">{nominee.like_count || 0}</span>
+      </div>
       <div className="slideshow-profile-overlay">
         <span className="slideshow-profile-role-badge" style={{ backgroundColor: roleInfo.bg }}>
           {roleInfo.label}
@@ -94,77 +99,91 @@ function ProfileImageSlide({ slide }) {
   );
 }
 
-// Sub-component: Split-layout comments slide (existing design)
+// Sub-component: Full-screen comments slide with profile on right
 function CommentsSlide({ slide }) {
   const { nominee, comments } = slide;
   const roleInfo = roleBadgeColors[nominee?.role] || { bg: "#6b7280", label: nominee?.role };
 
   return (
-    <>
-      {/* Left - Profile info */}
-      <div className="slideshow-left">
-        <div className="slideshow-avatar-wrapper">
-          <img
-            src={nominee.url_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(nominee.full_name || nominee.user_name)}&size=300&background=6366f1&color=fff`}
-            alt={nominee.full_name || nominee.user_name}
-            className="slideshow-avatar"
-          />
-          <span className="slideshow-role-badge" style={{ backgroundColor: roleInfo.bg }}>
-            {roleInfo.label}
-          </span>
+    <div className="slideshow-comments-fullscreen">
+      {/* Left - Comments */}
+      <div className="slideshow-comments-left">
+        <div className="slideshow-comments-header-full">
+          <span className="slideshow-comments-title">💬 Chia sẻ</span>
+          <span className="slideshow-comments-count">{comments.length}</span>
         </div>
-
-        <div className="slideshow-info">
-          <h2 className="slideshow-name">{nominee.full_name || nominee.user_name}</h2>
-          <p className="slideshow-username">@{nominee.user_name}</p>
-          {nominee.description && <p className="slideshow-description">{nominee.description}</p>}
-
-          <div className="slideshow-stats">
-            <div className="slideshow-stat">
-              <span className="slideshow-stat-icon">❤️</span>
-              <span className="slideshow-stat-value">{nominee.like_count || 0}</span>
-            </div>
-            <div className="slideshow-stat">
-              <span className="slideshow-stat-icon">💬</span>
-              <span className="slideshow-stat-value">{comments.length}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right - Comments */}
-      <div className="slideshow-right">
-        <div className="slideshow-comments-header">💬 Chia sẻ ({comments.length})</div>
         {comments.length > 0 ? (
-          <div className="slideshow-comments-list">
+          <div className="slideshow-comments-list-full">
             {[...comments]
-              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-              .slice(0, 5)
+              .sort((a, b) => {
+                const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                return timeB - timeA;
+              })
+              .slice(0, 20)
               .map((comment) => (
-                <div key={comment.id} className="slideshow-comment-item">
+                <div key={comment.id} className="slideshow-comment-item-full">
                   <img
                     src={
                       comment.is_anonymous
-                        ? `https://ui-avatars.com/api/?name=A&size=32&background=6b7280&color=fff`
-                        : comment.commenter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.commenter_name || "User")}&size=32&background=6366f1&color=fff`
+                        ? `https://ui-avatars.com/api/?name=A&size=48&background=6b7280&color=fff`
+                        : comment.commenter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.commenter_name || "User")}&size=48&background=6366f1&color=fff`
                     }
                     alt={comment.is_anonymous ? "Ẩn danh" : comment.commenter_name}
-                    className="slideshow-comment-avatar"
+                    className="slideshow-comment-avatar-full"
                   />
-                  <div className="slideshow-comment-content">
-                    <span className={`slideshow-comment-author ${comment.is_anonymous ? "anonymous" : ""}`}>
-                      {comment.is_anonymous ? "Ẩn danh" : comment.commenter_name || "Ẩn danh"}
+                  <div className="slideshow-comment-content-full">
+                    <span className={`slideshow-comment-author-full ${comment.is_anonymous ? "anonymous" : ""}`}>
+                      {comment.is_anonymous ? "🎭 Ẩn danh" : comment.commenter_name || "Ẩn danh"}
                     </span>
-                    <p className="slideshow-comment-text">{comment.content}</p>
+                    <p className="slideshow-comment-text-full">{comment.content}</p>
                   </div>
                 </div>
               ))}
           </div>
         ) : (
-          <div className="slideshow-no-comments">Chưa có chia sẻ nào</div>
+          <div className="slideshow-no-comments-full">
+            <span className="no-comments-icon">💭</span>
+            <span>Chưa có chia sẻ nào</span>
+          </div>
         )}
       </div>
-    </>
+
+      {/* Right - Profile info */}
+      <div className="slideshow-profile-right">
+        <div className="slideshow-profile-card">
+          <div className="slideshow-avatar-wrapper-full">
+            <img
+              src={nominee.url_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(nominee.full_name || nominee.user_name)}&size=300&background=6366f1&color=fff`}
+              alt={nominee.full_name || nominee.user_name}
+              className="slideshow-avatar-full"
+            />
+            <span className="slideshow-role-badge-full" style={{ backgroundColor: roleInfo.bg }}>
+              {roleInfo.label}
+            </span>
+          </div>
+
+          <div className="slideshow-info-full">
+            <h2 className="slideshow-name-full">{nominee.full_name || nominee.user_name}</h2>
+            <p className="slideshow-username-full">@{nominee.user_name}</p>
+            {nominee.description && <p className="slideshow-description-full">{nominee.description}</p>}
+
+            <div className="slideshow-stats-full">
+              <div className="slideshow-stat-full">
+                <span className="slideshow-stat-icon-full">❤️</span>
+                <span className="slideshow-stat-value-full">{nominee.like_count || 0}</span>
+                <span className="slideshow-stat-label">lượt thích</span>
+              </div>
+              <div className="slideshow-stat-full">
+                <span className="slideshow-stat-icon-full">💬</span>
+                <span className="slideshow-stat-value-full">{comments.length}</span>
+                <span className="slideshow-stat-label">chia sẻ</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -175,11 +194,16 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
   const [isAnimating, setIsAnimating] = useState(false);
   const [duration, setDuration] = useState(() => {
     const saved = localStorage.getItem("slideshow_duration");
-    return saved ? Number(saved) : DEFAULT_DURATION;
+    const parsed = saved ? Number(saved) : DEFAULT_DURATION;
+    // Sanity check: ensure valid number between 2 and 60
+    return !isNaN(parsed) && parsed >= 2 && parsed <= 60 ? parsed : DEFAULT_DURATION;
   });
   const progressRef = useRef(null);
   const intervalRef = useRef(null);
   const startTimeRef = useRef(Date.now());
+  const isAnimatingRef = useRef(false); // Ref để tránh stale closure
+  const currentIndexRef = useRef(0); // Ref để track currentIndex cho callbacks
+  const slidesLengthRef = useRef(0); // Ref để track slides.length cho callbacks
 
   // Build unified slides array
   const slides = useMemo(() => {
@@ -233,12 +257,25 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
     return result;
   }, [nominees, comments, extraImages]);
 
+  // Cập nhật refs ngay khi slides thay đổi
+  slidesLengthRef.current = slides.length;
+
   // Preload images ahead
   useImagePreloader(slides, currentIndex, slideshowConfig.preloadAhead);
 
   const currentSlide = slides[currentIndex];
 
-  const isFullScreenSlide = currentSlide && (currentSlide.type === "opening" || currentSlide.type === "extra" || currentSlide.type === "profile");
+  const isFullScreenSlide = currentSlide && (currentSlide.type === "opening" || currentSlide.type === "extra" || currentSlide.type === "profile" || currentSlide.type === "comments");
+
+  // Calculate effective duration (base + bonus for comments)
+  // Logic: +2s per comment, max +10s
+  const effectiveDuration = useMemo(() => {
+    let bonus = 0;
+    if (currentSlide?.type === "comments" && currentSlide.comments?.length > 0) {
+      bonus = Math.min(currentSlide.comments.length * 2, 10);
+    }
+    return duration + bonus;
+  }, [duration, currentSlide]);
 
   // Counter display text
   const getCounterText = useCallback(() => {
@@ -266,32 +303,37 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
 
   const goToSlide = useCallback(
     (index, direction) => {
-      if (isAnimating) return;
+      if (isAnimatingRef.current) return;
+      isAnimatingRef.current = true;
       setIsAnimating(true);
       setSlideDirection(direction);
       setTimeout(() => {
         setCurrentIndex(index);
+        isAnimatingRef.current = false;
         setIsAnimating(false);
         startTimeRef.current = Date.now();
       }, 300);
     },
-    [isAnimating]
+    [] // Không có dependency vì sử dụng ref
   );
 
+  // Cập nhật currentIndexRef đồng bộ
+  currentIndexRef.current = currentIndex;
+
   const goNext = useCallback(() => {
-    const nextIndex = currentIndex + 1;
-    if (nextIndex >= slides.length) {
+    const nextIndex = currentIndexRef.current + 1;
+    if (nextIndex >= slidesLengthRef.current) {
       // End of slideshow
       onClose();
       return;
     }
     goToSlide(nextIndex, "next");
-  }, [currentIndex, slides.length, goToSlide, onClose]);
+  }, [goToSlide, onClose]);
 
   const goPrev = useCallback(() => {
-    if (currentIndex <= 0) return;
-    goToSlide(currentIndex - 1, "prev");
-  }, [currentIndex, goToSlide]);
+    if (currentIndexRef.current <= 0) return;
+    goToSlide(currentIndexRef.current - 1, "prev");
+  }, [goToSlide]);
 
   const togglePause = useCallback(() => {
     setIsPaused((prev) => !prev);
@@ -304,18 +346,25 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
   }, [duration]);
 
   // Auto-play
+  // Keep a ref to goNext to avoid resetting interval when goNext identity changes (e.g. from onClose prop)
+  const goNextRef = useRef(goNext);
   useEffect(() => {
-    if (isPaused || isAnimating) {
-      clearInterval(intervalRef.current);
+    goNextRef.current = goNext;
+  }, [goNext]);
+
+  useEffect(() => {
+    if (isPaused) {
       return;
     }
 
-    intervalRef.current = setInterval(() => {
-      goNext();
-    }, duration * 1000);
+    const id = setInterval(() => {
+      if (!isAnimatingRef.current) {
+        goNextRef.current();
+      }
+    }, effectiveDuration * 1000);
 
-    return () => clearInterval(intervalRef.current);
-  }, [isPaused, isAnimating, goNext, duration]);
+    return () => clearInterval(id);
+  }, [isPaused, effectiveDuration, currentIndex]);
 
   // Progress bar animation
   useEffect(() => {
@@ -329,9 +378,9 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
     const el = progressRef.current;
     el.style.animation = "none";
     void el.offsetHeight;
-    el.style.animation = `slideshow-progress ${duration * 1000}ms linear`;
+    el.style.animation = `slideshow-progress ${effectiveDuration * 1000}ms linear`;
     el.style.animationPlayState = "running";
-  }, [currentIndex, isPaused, isAnimating, duration]);
+  }, [currentIndex, isPaused, isAnimating, effectiveDuration]);
 
   // Keyboard controls
   useEffect(() => {
@@ -341,9 +390,11 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
           onClose();
           break;
         case "ArrowRight":
+          e.preventDefault();
           goNext();
           break;
         case "ArrowLeft":
+          e.preventDefault();
           goPrev();
           break;
         case " ":
@@ -392,9 +443,6 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
           <div className="slideshow-progress-fill" ref={progressRef} />
         </div>
 
-        {/* Counter */}
-        <div className="slideshow-counter">{getCounterText()}</div>
-
         {/* Navigation arrows */}
         {currentIndex > 0 && (
           <button className="slideshow-nav-btn slideshow-prev" onClick={goPrev} title="Trước (←)">
@@ -424,9 +472,6 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
               +
             </button>
           </div>
-          <span className="slideshow-slide-counter-small">
-            {currentIndex + 1} / {slides.length}
-          </span>
         </div>
       </div>
     </div>
