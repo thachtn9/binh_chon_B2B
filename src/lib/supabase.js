@@ -800,6 +800,24 @@ export async function findCorrectPredictions(winners) {
       }
     });
 
+    // Build reverse mapping: voting category -> list of honorOnly categories
+    // e.g. "star-performer-dev" -> ["star-performer-dev-2"]
+    const votingToHonorOnlyMap = {};
+    categories.forEach((cat) => {
+      if (!cat.sub_categories) return;
+      const honorOnlySubs = cat.sub_categories.filter((sub) => sub.honorOnly);
+      const votingSubs = cat.sub_categories.filter((sub) => !sub.honorOnly);
+      honorOnlySubs.forEach((honorSub) => {
+        const votingSub = votingSubs.find((vs) => vs.role === honorSub.role);
+        if (votingSub) {
+          if (!votingToHonorOnlyMap[votingSub.id]) {
+            votingToHonorOnlyMap[votingSub.id] = [];
+          }
+          votingToHonorOnlyMap[votingSub.id].push(honorSub.id);
+        }
+      });
+    });
+
     // Calculate correct predictions for each voter
     const results = [];
     const totalWinnerCategories = Object.keys(winners).length;
@@ -809,9 +827,21 @@ export async function findCorrectPredictions(winners) {
       const correctCategories = [];
 
       voter.votes.forEach((vote) => {
+        // Check direct match
         if (winners[vote.category_id] && winners[vote.category_id] === vote.nominee_id) {
           correctCount++;
           correctCategories.push(vote.category_name);
+        }
+        // Check if this vote also matches any honorOnly category winners
+        // e.g. DEV vote matching DEV(2) winner
+        const honorOnlyIds = votingToHonorOnlyMap[vote.category_id];
+        if (honorOnlyIds) {
+          honorOnlyIds.forEach((honorId) => {
+            if (winners[honorId] && winners[honorId] === vote.nominee_id) {
+              correctCount++;
+              correctCategories.push(vote.category_name + " (2)");
+            }
+          });
         }
       });
 
@@ -885,6 +915,22 @@ export async function findCorrectPredictionsByCategory(winners) {
       return {};
     }
 
+    // Build mapping: honorOnly category -> voting category
+    // e.g. "star-performer-dev-2" -> "star-performer-dev"
+    const honorOnlyToVotingMap = {};
+    categories.forEach((cat) => {
+      if (!cat.sub_categories) return;
+      const honorOnlySubs = cat.sub_categories.filter((sub) => sub.honorOnly);
+      const votingSubs = cat.sub_categories.filter((sub) => !sub.honorOnly);
+      honorOnlySubs.forEach((honorSub) => {
+        // Map to the voting sub-category with the same role
+        const votingSub = votingSubs.find((vs) => vs.role === honorSub.role);
+        if (votingSub) {
+          honorOnlyToVotingMap[honorSub.id] = votingSub.id;
+        }
+      });
+    });
+
     // Group results by category
     const resultsByCategory = {};
 
@@ -892,8 +938,11 @@ export async function findCorrectPredictionsByCategory(winners) {
     Object.entries(winners).forEach(([categoryId, winnerId]) => {
       if (!winnerId) return;
 
+      // For honorOnly categories, look up votes from the corresponding voting category
+      const voteCategoryId = honorOnlyToVotingMap[categoryId] || categoryId;
+
       // Find all votes for this category that predicted the winner correctly
-      const correctVotes = allVotes.filter((vote) => vote.category_id === categoryId && vote.nominee_id === winnerId);
+      const correctVotes = allVotes.filter((vote) => vote.category_id === voteCategoryId && vote.nominee_id === winnerId);
 
       // Số người thực tế đã chọn đúng nominee này (unique voters)
       const uniqueVoterEmails = new Set(correctVotes.map((v) => v.voter_email || v.voter_id));

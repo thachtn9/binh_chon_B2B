@@ -3,12 +3,12 @@ import { categories, sampleNominees, defaultSettings, formatCurrency, isVotingOp
 
 const VoteContext = createContext({});
 
-// Calculate total required selections (including sub-categories)
+// Calculate total required selections (including sub-categories, excluding honorOnly)
 const getTotalRequiredSelections = () => {
   let count = 0;
   categories.forEach((cat) => {
     if (cat.sub_categories) {
-      count += cat.sub_categories.length;
+      count += cat.sub_categories.filter((sub) => !sub.honorOnly).length;
     } else {
       count += 1;
     }
@@ -136,12 +136,12 @@ export function VoteProvider({ children }) {
     setSelections({});
   };
 
-  // Get all required selection IDs (including sub-categories)
+  // Get all required selection IDs (including sub-categories, excluding honorOnly)
   const getAllRequiredSelectionIds = () => {
     const ids = [];
     categories.forEach((cat) => {
       if (cat.sub_categories) {
-        cat.sub_categories.forEach((sub) => ids.push(sub.id));
+        cat.sub_categories.filter((sub) => !sub.honorOnly).forEach((sub) => ids.push(sub.id));
       } else {
         ids.push(cat.id);
       }
@@ -155,12 +155,12 @@ export function VoteProvider({ children }) {
     return requiredIds.every((id) => selections[id]?.nomineeId);
   };
 
-  // Get remaining categories/sub-categories to select
+  // Get remaining categories/sub-categories to select (excluding honorOnly)
   const getRemainingItems = () => {
     const remaining = [];
     categories.forEach((cat) => {
       if (cat.sub_categories) {
-        cat.sub_categories.forEach((sub) => {
+        cat.sub_categories.filter((sub) => !sub.honorOnly).forEach((sub) => {
           if (!selections[sub.id]?.nomineeId) {
             remaining.push({
               id: sub.id,
