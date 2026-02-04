@@ -649,7 +649,7 @@ export async function getAllUsersForAdmin() {
     return [];
   }
 
-  const { data, error } = await supabase.from("users").select("id, user_name, full_name, email, role, is_admin, url_avatar, description, created_at").order("role").order("user_name");
+  const { data, error } = await supabase.from("users").select("id, user_name, full_name, email, role, is_admin, url_avatar, url_profile, description, created_at").order("role").order("user_name");
 
   if (error) {
     console.error("Error fetching users for admin:", error);
@@ -688,7 +688,7 @@ export async function updateUserProfile(userId, profileData) {
     throw new Error("Demo mode: Cannot update user profile");
   }
 
-  const { full_name, user_name, url_avatar, description } = profileData;
+  const { full_name, user_name, url_avatar, url_profile, description } = profileData;
 
   const { data, error } = await supabase
     .from("users")
@@ -696,6 +696,7 @@ export async function updateUserProfile(userId, profileData) {
       full_name,
       user_name,
       url_avatar,
+      url_profile,
       description,
     })
     .eq("id", userId)
@@ -1895,6 +1896,105 @@ export async function deleteCategoryWinner(categoryId) {
     return true;
   } catch (err) {
     console.error("Error deleting category winner:", err);
+    throw err;
+  }
+}
+
+// =============================================
+// SLIDESHOW IMAGES API
+// Quản lý ảnh bổ sung cho slideshow
+// =============================================
+
+/**
+ * Lấy danh sách ảnh slideshow theo thứ tự created_at (thêm trước hiển thị trước)
+ * @returns {Array} - Danh sách ảnh
+ */
+export async function fetchSlideshowImages() {
+  if (!supabase) {
+    const stored = localStorage.getItem("slideshow_images");
+    return stored ? JSON.parse(stored) : [];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("slideshow_images")
+      .select("*")
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching slideshow images:", error);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.error("Error fetching slideshow images:", err);
+    return [];
+  }
+}
+
+/**
+ * Thêm ảnh mới vào slideshow
+ * @param {string} imageUrl - URL ảnh (từ ImgBB)
+ * @param {string} createdBy - ID user tạo
+ * @returns {Object} - Record vừa tạo
+ */
+export async function addSlideshowImage(imageUrl, createdBy) {
+  if (!supabase) {
+    const stored = localStorage.getItem("slideshow_images");
+    const images = stored ? JSON.parse(stored) : [];
+    const newImage = {
+      id: `demo_${Date.now()}`,
+      image_url: imageUrl,
+      created_by: createdBy,
+      created_at: new Date().toISOString(),
+    };
+    images.push(newImage);
+    localStorage.setItem("slideshow_images", JSON.stringify(images));
+    return newImage;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("slideshow_images")
+      .insert({
+        image_url: imageUrl,
+        created_by: createdBy,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.error("Error adding slideshow image:", err);
+    throw err;
+  }
+}
+
+/**
+ * Xóa ảnh khỏi slideshow
+ * @param {string} id - ID ảnh cần xóa
+ */
+export async function deleteSlideshowImage(id) {
+  if (!supabase) {
+    const stored = localStorage.getItem("slideshow_images");
+    const images = stored ? JSON.parse(stored) : [];
+    const filtered = images.filter((img) => img.id !== id);
+    localStorage.setItem("slideshow_images", JSON.stringify(filtered));
+    return true;
+  }
+
+  try {
+    const { error } = await supabase
+      .from("slideshow_images")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error("Error deleting slideshow image:", err);
     throw err;
   }
 }

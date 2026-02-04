@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(20) NOT NULL CHECK (role IN ('PM', 'BA', 'DEV', 'PROJECT')),
   is_admin BOOLEAN DEFAULT FALSE,
   url_avatar TEXT,
+  url_profile TEXT, -- Ảnh profile lớn dùng cho slideshow
   description TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

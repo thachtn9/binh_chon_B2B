@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { fetchNominees, addComment, fetchAllComments, fetchNomineeByIdFresh, fetchCommentsWithProfile, fetchYEBSponsorship, formatCurrency } from "../lib/supabase";
+import { fetchNominees, addComment, fetchAllComments, fetchNomineeByIdFresh, fetchCommentsWithProfile, fetchYEBSponsorship, formatCurrency, fetchSlideshowImages } from "../lib/supabase";
 import NomineeDetailModal from "../components/NomineeDetailModal";
 import ProfileSlideshow from "../components/ProfileSlideshow";
 
@@ -243,6 +243,7 @@ export default function HomePage() {
   const [yebLoading, setYebLoading] = useState(true);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
+  const [slideshowImages, setSlideshowImages] = useState([]);
 
   // Lazy load intersection observer
   const { visibleItems, observe } = useIntersectionObserver();
@@ -408,14 +409,17 @@ export default function HomePage() {
     async function loadData() {
       setLoading(true);
       try {
-        // Fetch nominees (only individuals, not projects)
-        const allNominees = await fetchNominees();
+        // Fetch nominees, comments, and slideshow images in parallel
+        const [allNominees, allComments, extraImages] = await Promise.all([
+          fetchNominees(),
+          fetchAllComments(),
+          fetchSlideshowImages(),
+        ]);
+
         const individualNominees = allNominees.filter((n) => n.role !== "PROJECT");
         const shuffledNominees = shuffleArray(individualNominees);
         setNominees(shuffledNominees);
-
-        // Fetch all comments
-        const allComments = await fetchAllComments();
+        setSlideshowImages(extraImages);
 
         // Group comments by nominee_id
         const groupedComments = {};
@@ -423,6 +427,25 @@ export default function HomePage() {
           groupedComments[n.id] = allComments.filter((c) => c.nominee_id === n.id);
         });
         setComments(groupedComments);
+
+        // Preload first 10 images (opening slides + first profile images)
+        const imagesToPreload = [];
+        // Opening slides
+        const { default: config } = await import("../config/slideshowConfig");
+        config.openingSlides
+          .filter((s) => s.url && s.url.trim() !== "")
+          .forEach((s) => imagesToPreload.push(s.url));
+        // First few profile images
+        shuffledNominees.forEach((n) => {
+          if (n.url_profile && n.url_profile.trim() !== "") {
+            imagesToPreload.push(n.url_profile);
+          }
+        });
+        // Preload first 10
+        imagesToPreload.slice(0, 10).forEach((url) => {
+          const img = new Image();
+          img.src = url;
+        });
       } catch (error) {
         console.error("Error loading data:", error);
       } finally {
@@ -588,7 +611,22 @@ export default function HomePage() {
             <div className="container">
               <h2 className="nominees-section-title" id="nominees-section-title">
                 👤 Danh sách profile ({nominees.length} người)
-                <button className="slideshow-btn" onClick={() => setIsSlideshowOpen(true)} title="Xem slideshow profile">
+                <button
+                  className="slideshow-btn"
+                  onClick={() => setIsSlideshowOpen(true)}
+                  onMouseEnter={() => {
+                    import("../config/slideshowConfig").then(({ default: config }) => {
+                      config.openingSlides
+                        .filter((s) => s.url && s.url.trim() !== "")
+                        .slice(0, 3)
+                        .forEach((slide) => {
+                          const img = new Image();
+                          img.src = slide.url;
+                        });
+                    });
+                  }}
+                  title="Xem slideshow profile"
+                >
                   ▶ Slideshow
                 </button>
                 {!isSearchVisible && (
@@ -671,7 +709,7 @@ export default function HomePage() {
       <QRDonateModal isOpen={isQRModalOpen} onClose={() => setIsQRModalOpen(false)} user={user} />
 
       {/* Profile Slideshow */}
-      {isSlideshowOpen && <ProfileSlideshow nominees={nominees} comments={comments} onClose={() => setIsSlideshowOpen(false)} />}
+      {isSlideshowOpen && <ProfileSlideshow nominees={nominees} comments={comments} extraImages={slideshowImages} onClose={() => setIsSlideshowOpen(false)} />}
     </main>
   );
 }

@@ -1,7 +1,27 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import * as XLSX from "xlsx";
 import { useAuth } from "../context/AuthContext";
-import { getAllVoteSessions, getVoterRankingReport, getAllUsersForAdmin, updateUserAdminStatus, updateUserProfile, formatCurrency, formatDate, findCorrectPredictionsByCategory, getNomineesForWinnerSelection, getNomineeStatistics, getSettings, updateSettings, fetchFPTChatParticipants, bulkUpdateUserAvatars, fetchAllCommentsForAdmin } from "../lib/supabase";
+import {
+  getAllVoteSessions,
+  getVoterRankingReport,
+  getAllUsersForAdmin,
+  updateUserAdminStatus,
+  updateUserProfile,
+  formatCurrency,
+  formatDate,
+  findCorrectPredictionsByCategory,
+  getNomineesForWinnerSelection,
+  getNomineeStatistics,
+  getSettings,
+  updateSettings,
+  fetchFPTChatParticipants,
+  bulkUpdateUserAvatars,
+  fetchAllCommentsForAdmin,
+  fetchSlideshowImages,
+  addSlideshowImage,
+  deleteSlideshowImage,
+  uploadImageToImgBB,
+} from "../lib/supabase";
 import { categories } from "../config/votingConfig";
 import { useNavigate } from "react-router-dom";
 import HonoreeManager from "../components/HonoreeManager";
@@ -38,6 +58,7 @@ export default function AdminPage() {
     full_name: "",
     user_name: "",
     url_avatar: "",
+    url_profile: "",
     description: "",
   });
   const [isSavingUser, setIsSavingUser] = useState(false);
@@ -48,6 +69,12 @@ export default function AdminPage() {
   const [isUpdatingAvatars, setIsUpdatingAvatars] = useState(false);
   const [avatarUpdateResult, setAvatarUpdateResult] = useState(null);
   const [avatarProgress, setAvatarProgress] = useState({ current: 0, total: 0, currentUser: "", phase: "" });
+
+  // Slideshow images tab states
+  const [slideshowImages, setSlideshowImages] = useState([]);
+  const [slideshowUploading, setSlideshowUploading] = useState(false);
+  const [slideshowUploadProgress, setSlideshowUploadProgress] = useState("");
+  const slideshowFileRef = useRef(null);
 
   useEffect(() => {
     // Redirect if not admin
@@ -63,7 +90,7 @@ export default function AdminPage() {
   const fetchData = async () => {
     setIsLoadingData(true);
     try {
-      const [sessions, users, allUsers, nominees, stats, settingsData, comments] = await Promise.all([getAllVoteSessions(), getVoterRankingReport(), getAllUsersForAdmin(), getNomineesForWinnerSelection(), getNomineeStatistics(), getSettings(), fetchAllCommentsForAdmin()]);
+      const [sessions, users, allUsers, nominees, stats, settingsData, comments, slideImages] = await Promise.all([getAllVoteSessions(), getVoterRankingReport(), getAllUsersForAdmin(), getNomineesForWinnerSelection(), getNomineeStatistics(), getSettings(), fetchAllCommentsForAdmin(), fetchSlideshowImages()]);
       setVotesData(sessions);
       setUsersData(users);
       setAdminsData(allUsers);
@@ -72,6 +99,7 @@ export default function AdminPage() {
       setSettings(settingsData);
       setEditedSettings(settingsData);
       setCommentsData(comments);
+      setSlideshowImages(slideImages);
     } catch (error) {
       console.error("Error fetching admin data:", error);
     } finally {
@@ -86,6 +114,7 @@ export default function AdminPage() {
       full_name: user.full_name || "",
       user_name: user.user_name || "",
       url_avatar: user.url_avatar || "",
+      url_profile: user.url_profile || "",
       description: user.description || "",
     });
   };
@@ -97,6 +126,7 @@ export default function AdminPage() {
       full_name: "",
       user_name: "",
       url_avatar: "",
+      url_profile: "",
       description: "",
     });
   };
@@ -185,6 +215,125 @@ export default function AdminPage() {
     setShowAvatarModal(false);
     setAvatarToken("");
     setAvatarUpdateResult(null);
+  };
+
+  // Slideshow image management
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      img.onload = () => {
+        let { width, height } = img;
+        const isLandscape = width >= height;
+
+        if (isLandscape) {
+          if (width > 1920) {
+            height = Math.round((height * 1920) / width);
+            width = 1920;
+          }
+          if (height > 1080) {
+            width = Math.round((width * 1080) / height);
+            height = 1080;
+          }
+        } else {
+          if (height > 1920) {
+            width = Math.round((width * 1920) / height);
+            height = 1920;
+          }
+          if (width > 1080) {
+            height = Math.round((height * 1080) / width);
+            width = 1080;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" }));
+            } else {
+              reject(new Error("Failed to compress image"));
+            }
+          },
+          "image/jpeg",
+          0.94
+        );
+      };
+
+      img.onerror = () => reject(new Error("Failed to load image"));
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleUploadSlideshowImages = async () => {
+    const files = slideshowFileRef.current?.files;
+    if (!files || files.length === 0) {
+      alert("Vui lòng chọn ảnh!");
+      return;
+    }
+
+    const apiKey = localStorage.getItem("imgbb_api_key") || "261c6045a97e96ea5289f5f2446971ab";
+    if (!apiKey) {
+      alert("Cần API key ImgBB!");
+      return;
+    }
+
+    setSlideshowUploading(true);
+    const total = files.length;
+    let success = 0;
+    let failed = 0;
+
+    try {
+      for (let i = 0; i < total; i++) {
+        const file = files[i];
+        setSlideshowUploadProgress(`Đang upload ${i + 1}/${total}: ${file.name}`);
+        try {
+          const compressed = await compressImage(file);
+          const imageUrl = await uploadImageToImgBB(compressed, apiKey);
+          await addSlideshowImage(imageUrl, voteUser?.id);
+          success++;
+        } catch (err) {
+          console.error(`Failed to upload ${file.name}:`, err);
+          failed++;
+        }
+      }
+
+      // Refresh
+      const updated = await fetchSlideshowImages();
+      setSlideshowImages(updated);
+      if (slideshowFileRef.current) slideshowFileRef.current.value = "";
+
+      alert(`Upload xong! Thành công: ${success}, Lỗi: ${failed}`);
+    } catch (error) {
+      console.error("Error uploading slideshow images:", error);
+      alert("Lỗi upload: " + error.message);
+    } finally {
+      setSlideshowUploading(false);
+      setSlideshowUploadProgress("");
+    }
+  };
+
+  const handleDeleteSlideshowImage = async (id) => {
+    if (!window.confirm("Bạn có chắc muốn xóa ảnh này?")) return;
+    try {
+      await deleteSlideshowImage(id);
+      const updated = await fetchSlideshowImages();
+      setSlideshowImages(updated);
+    } catch (error) {
+      console.error("Error deleting slideshow image:", error);
+      alert("Lỗi xóa ảnh: " + error.message);
+    }
   };
 
   const handleToggleAdmin = async (userId, currentStatus, userName) => {
@@ -541,6 +690,9 @@ export default function AdminPage() {
         </button>
         <button className={`btn ${activeTab === "results" ? "btn-primary" : "btn-secondary"}`} onClick={() => setActiveTab("results")}>
           🏆 Vinh Danh
+        </button>
+        <button className={`btn ${activeTab === "slideshow" ? "btn-primary" : "btn-secondary"}`} onClick={() => setActiveTab("slideshow")}>
+          🎞️ Slideshow ({slideshowImages.length})
         </button>
         <button className={`btn ${activeTab === "avatars" ? "btn-primary" : "btn-secondary"}`} onClick={() => setShowAvatarModal(true)}>
           🖼️ Cập nhật Avatar
@@ -949,6 +1101,46 @@ export default function AdminPage() {
               <HonoreeManager allNominees={allNominees} currentUser={voteUser} />
             </div>
           )}
+
+          {activeTab === "slideshow" && (
+            <div className="card" style={{ padding: "2rem" }}>
+              <h3 style={{ marginBottom: "1.5rem", color: "#fff" }}>🎞️ Quản lý ảnh Slideshow</h3>
+              <p style={{ color: "rgba(255,255,255,0.6)", marginBottom: "1.5rem", fontSize: "0.9rem" }}>Ảnh bổ sung sẽ hiển thị sau phần profiles trong slideshow.</p>
+
+              {/* Upload form */}
+              <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: "12px", padding: "1.5rem", marginBottom: "2rem" }}>
+                <h4 style={{ color: "#fff", marginBottom: "1rem" }}>Upload ảnh</h4>
+                <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+                  <input ref={slideshowFileRef} type="file" accept="image/*" multiple style={{ color: "#fff", fontSize: "0.9rem" }} />
+                  <button className="btn btn-primary" onClick={handleUploadSlideshowImages} disabled={slideshowUploading}>
+                    {slideshowUploading ? "⏳ Đang upload..." : "📤 Upload"}
+                  </button>
+                </div>
+                {slideshowUploadProgress && <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.85rem", marginTop: "0.75rem" }}>{slideshowUploadProgress}</div>}
+              </div>
+
+              {/* Image list */}
+              <h4 style={{ color: "#fff", marginBottom: "1rem" }}>Danh sách ảnh ({slideshowImages.length})</h4>
+              {slideshowImages.length === 0 ? (
+                <p style={{ color: "rgba(255,255,255,0.4)", fontStyle: "italic" }}>Chưa có ảnh nào.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  {slideshowImages.map((img, idx) => (
+                    <div key={img.id} style={{ display: "flex", alignItems: "center", gap: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px", padding: "0.6rem 1rem", border: "1px solid rgba(255,255,255,0.1)" }}>
+                      <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.8rem", minWidth: "24px" }}>{idx + 1}.</span>
+                      <a href={img.image_url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: "0.85rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {img.image_url}
+                      </a>
+                      <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.75rem", whiteSpace: "nowrap" }}>{new Date(img.created_at).toLocaleString("vi-VN")}</span>
+                      <button className="btn btn-secondary" onClick={() => handleDeleteSlideshowImage(img.id)} style={{ padding: "0.2rem 0.6rem", fontSize: "0.75rem", color: "#ef4444", minWidth: "auto" }}>
+                        Xóa
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -985,6 +1177,12 @@ export default function AdminPage() {
               <div className="edit-form-group">
                 <label className="edit-form-label">URL Avatar</label>
                 <input type="text" className="edit-form-input" value={editUserForm.url_avatar} onChange={(e) => setEditUserForm((prev) => ({ ...prev, url_avatar: e.target.value }))} placeholder="https://example.com/avatar.jpg" />
+              </div>
+
+              <div className="edit-form-group">
+                <label className="edit-form-label">URL Profile Image (Slideshow)</label>
+                <input type="text" className="edit-form-input" value={editUserForm.url_profile} onChange={(e) => setEditUserForm((prev) => ({ ...prev, url_profile: e.target.value }))} placeholder="https://example.com/profile-large.png" />
+                <small style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem" }}>Ảnh profile lớn dùng cho slideshow (khác với avatar nhỏ)</small>
               </div>
 
               <div className="edit-form-group">
