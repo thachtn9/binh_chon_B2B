@@ -5,11 +5,19 @@ import NomineeCard from "../components/NomineeCard";
 import PredictionModal from "../components/PredictionModal";
 import { categories, fetchNomineesForCategory } from "../lib/supabase";
 
+// Helper: Lấy sub-categories cho voting (loại bỏ honorOnly)
+function getVotingSubCategories(category) {
+  if (!category.sub_categories) return null;
+  return category.sub_categories.filter(sub => !sub.honorOnly);
+}
+
 export default function VotePage() {
   const { user, signInWithGoogle, canVote, permissionMessage, permissionLoading, voteUser } = useAuth();
   const { totalCompletedCount, TOTAL_CATEGORIES, selections, isVotingOpen, votingStatus, loadUserHistory, getNomineeById, getUserExistingVoteForCategory, deleteExistingVoteForCategory, submitSingleVote } = useVote();
   const [activeCategory, setActiveCategory] = useState(categories[0]);
-  const [activeSubCategory, setActiveSubCategory] = useState(categories[0].sub_categories ? categories[0].sub_categories[0].id : null);
+  // Khởi tạo với sub-category đầu tiên không phải honorOnly
+  const initSubCat = getVotingSubCategories(categories[0]);
+  const [activeSubCategory, setActiveSubCategory] = useState(initSubCat && initSubCat.length > 0 ? initSubCat[0].id : null);
   const [searchTerm, setSearchTerm] = useState("");
   const [animationKey, setAnimationKey] = useState(0);
   const [isAnimating, setIsAnimating] = useState(true);
@@ -120,7 +128,9 @@ export default function VotePage() {
       setIsAnimating(true);
       setAnimationKey((prev) => prev + 1);
       setActiveCategory(category);
-      setActiveSubCategory(category.sub_categories ? category.sub_categories[0].id : null);
+      // Lấy sub-categories cho voting (loại bỏ honorOnly)
+      const votingSubCats = getVotingSubCategories(category);
+      setActiveSubCategory(votingSubCats && votingSubCats.length > 0 ? votingSubCats[0].id : null);
       setSearchTerm("");
 
       setTimeout(() => {
@@ -151,25 +161,37 @@ export default function VotePage() {
   }, []);
 
   // Check if category is fully completed (including all sub-categories) - also check history
+  // Chỉ đếm các sub-categories không phải honorOnly
   const isCategoryCompleted = (category) => {
-    if (category.sub_categories) {
-      return category.sub_categories.every((sub) => selections[sub.id]?.nomineeId || getUserExistingVoteForCategory(sub.id));
+    const votingSubCats = getVotingSubCategories(category);
+    if (votingSubCats && votingSubCats.length > 0) {
+      return votingSubCats.every((sub) => selections[sub.id]?.nomineeId || getUserExistingVoteForCategory(sub.id));
     }
     return selections[category.id]?.nomineeId || getUserExistingVoteForCategory(category.id);
   };
 
   // Check if category is voted from history
+  // Chỉ đếm các sub-categories không phải honorOnly
   const isCategoryVoted = (category) => {
-    if (category.sub_categories) {
-      return category.sub_categories.every((sub) => getUserExistingVoteForCategory(sub.id));
+    const votingSubCats = getVotingSubCategories(category);
+    if (votingSubCats && votingSubCats.length > 0) {
+      return votingSubCats.every((sub) => getUserExistingVoteForCategory(sub.id));
     }
     return getUserExistingVoteForCategory(category.id);
   };
 
   // Get completion count for category with sub-categories
+  // Chỉ đếm các sub-categories không phải honorOnly
   const getSubCategoryCompletionCount = (category) => {
-    if (!category.sub_categories) return 0;
-    return category.sub_categories.filter((sub) => selections[sub.id]?.nomineeId || getUserExistingVoteForCategory(sub.id)).length;
+    const votingSubCats = getVotingSubCategories(category);
+    if (!votingSubCats || votingSubCats.length === 0) return 0;
+    return votingSubCats.filter((sub) => selections[sub.id]?.nomineeId || getUserExistingVoteForCategory(sub.id)).length;
+  };
+
+  // Số lượng sub-categories cho voting (không tính honorOnly)
+  const getVotingSubCategoryCount = (category) => {
+    const votingSubCats = getVotingSubCategories(category);
+    return votingSubCats ? votingSubCats.length : 0;
   };
 
   return (
@@ -254,9 +276,9 @@ export default function VotePage() {
                     <span className="category-tab-name">{category.name}</span>
                     <span className="category-tab-type">
                       {category.type === "individual" ? "Cá nhân" : "Dự án"}
-                      {hasSubCategories && (
+                      {hasSubCategories && getVotingSubCategoryCount(category) > 0 && (
                         <span style={{ marginLeft: "6px", color: isVoted ? "#22c55e" : "var(--gold)" }}>
-                          ({subCompletionCount}/{category.sub_categories.length})
+                          ({subCompletionCount}/{getVotingSubCategoryCount(category)})
                         </span>
                       )}
                     </span>
@@ -282,17 +304,17 @@ export default function VotePage() {
             <span className="content-nominee-count">{filteredNominees.length} ứng viên</span>
           </div>
 
-          {/* Sub-category tabs for Star Performer */}
-          {activeCategory.sub_categories && (
+          {/* Sub-category tabs for Star Performer - chỉ hiển thị những cái không có honorOnly */}
+          {getVotingSubCategories(activeCategory) && getVotingSubCategories(activeCategory).length > 0 && (
             <div className="sub-category-tabs">
-              {activeCategory.sub_categories.map((subCat) => {
+              {getVotingSubCategories(activeCategory).map((subCat) => {
                 const isSubActive = activeSubCategory === subCat.id;
                 const isSubCompleted = selections[subCat.id]?.nomineeId;
                 const isSubVoted = getUserExistingVoteForCategory(subCat.id);
 
                 return (
                   <button key={subCat.id} className={`sub-tab ${isSubActive ? "active" : ""} ${isSubCompleted ? "completed" : ""} ${isSubVoted ? "voted" : ""}`} onClick={() => handleSubCategoryChange(subCat.id)}>
-                    <span className="sub-tab-name">{subCat.name}</span>
+                    <span className="sub-tab-name">{subCat.votingName || subCat.name}</span>
                     <span className="sub-tab-label">{subCat.label}</span>
                     {(isSubCompleted || isSubVoted) && <span className="sub-tab-check">✓</span>}
                   </button>
@@ -356,7 +378,7 @@ export default function VotePage() {
       <PredictionModal isOpen={modalOpen} onClose={() => setModalOpen(false)} nominee={selectedNominee} categoryName={selectedCategoryName} onConfirm={handlePredictionConfirm} existingSelection={getExistingSelection()} />
 
       {/* Spacer for fixed bottom bar */}
-      <div style={{ height: "100px" }} />
+      <div style={{ height: "40px" }} />
 
       {/* Thể lệ dự đoán - gần footer */}
       <div className="vote-rules-section container">

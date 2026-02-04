@@ -16,63 +16,74 @@ export const categories = [
   {
     id: "star-performer",
     name: "Star Performer",
-    description: "Nhân viên Xuất sắc - Dành cho PM, BA, DEV có hiệu suất và chất lượng công việc vượt trội",
+    description: "Vinh danh PM, BA, DEV có hiệu suất và chất lượng công việc vượt trội. Dẫn dắt dự án về đích đúng kế hoạch với chất lượng cam kết.",
     icon: "🌟",
     type: "individual",
     role_filter: ["PM", "BA", "DEV"],
     sort_order: 1,
-    // Sub-categories for Star Performer - phải chọn 3 người (1 PM, 1 BA, 1 DEV)
+    // Sub-categories for Star Performer - phải chọn 4 người (1 PM, 1 BA, 2 DEV)
     sub_categories: [
-      { id: "star-performer-pm", name: "PM", label: "Project Manager", role: "PM" },
-      { id: "star-performer-ba", name: "BA", label: "Business Analyst", role: "BA" },
-      { id: "star-performer-dev", name: "DEV", label: "Developer", role: "DEV" },
+      { id: "star-performer-pm", name: "PM", label: "Project Manager of the Year", role: "PM", description: "Vinh danh PM – thuyền trưởng bản lĩnh, giữ vững kiểm soát trước áp lực, dẫn dắt dự án về đích đúng kế hoạch." },
+      { id: "star-performer-ba", name: "BA", label: "Business Analyst of the Year", role: "BA", description: "Vinh danh BA – 'bộ não' của dự án, chuyển hóa yêu cầu mơ hồ thành giải pháp rõ ràng và khả thi." },
+      { id: "star-performer-dev", name: "DEV (1)", votingName: "DEV", label: "Software Developer of the Year", role: "DEV", description: "Vinh danh Developer tạo ra những dòng code sạch, tối ưu, dễ bảo trì." },
+      { id: "star-performer-dev-2", name: "DEV (2)", label: "Software Developer of the Year", role: "DEV", description: "Vinh danh Developer tạo ra những dòng code sạch, tối ưu, dễ bảo trì.", honorOnly: true },
     ],
   },
   {
-    id: "unsung-hero",
-    name: "The Unsung Hero",
-    description: "Người hùng Thầm lặng - Dành cho nhân tố cống hiến âm thầm, tận tụy hỗ trợ team và tập thể phòng",
-    icon: "🛡️",
+    id: "tech-leader",
+    name: "Technical Leader of the Year",
+    description: "Vinh danh Technical Leader – người định hướng công nghệ, đưa ra quyết định kỹ thuật đúng đắn và dẫn dắt đội ngũ giải quyết bài toán phức tạp. Luôn giữ chuẩn chất lượng và kết nối hiệu quả giữa kỹ thuật với mục tiêu.",
+    icon: "⚙️",
     type: "individual",
-    role_filter: ["PM", "BA", "DEV"],
+    role_filter: ["DEV"],
     sort_order: 2,
   },
   {
-    id: "innovator",
-    name: "The Innovator & AI Pioneer",
-    description: "Tiên phong Đổi mới - Dành cho người có sáng kiến công nghệ/ứng dụng AI hiệu quả và truyền cảm hứng",
-    icon: "🚀",
+    id: "unsung-hero",
+    name: "Silent Contribution Excellence",
+    description: "Vinh danh người âm thầm đứng sau thành công, sẵn sàng gánh vác 'việc không tên' để tập thể vận hành trơn tru. Là nguồn năng lượng tích cực, điềm tĩnh và ấm áp, góp phần kết nối đội ngũ.",
+    icon: "🛡️",
     type: "individual",
     role_filter: ["PM", "BA", "DEV"],
     sort_order: 3,
   },
   {
-    id: "peoples-choice",
-    name: "People's Choice",
-    description: "Nhân viên được yêu thích - Dành cho người mang lại năng lượng tích cực nhất",
-    icon: "❤️",
+    id: "innovator",
+    name: "Innovation & AI Excellence",
+    description: "Vinh danh người tiên phong ứng dụng AI và công cụ hiện đại để nâng cao hiệu suất làm việc. Không ngừng phá vỡ lối mòn, sẵn sàng chia sẻ và lan tỏa tri thức trong hành trình chuyển đổi số.",
+    icon: "🚀",
     type: "individual",
     role_filter: ["PM", "BA", "DEV"],
     sort_order: 4,
   },
   {
-    id: "dream-team",
-    name: "The Dream Team",
-    description: "Dự án Xuất sắc - Hiệu quả cao, chất lượng tốt, khách hàng hài lòng",
-    icon: "💎",
-    type: "project",
-    role_filter: ["PROJECT"],
+    id: "peoples-choice",
+    name: "ISCGP People's Choice",
+    description: "Vinh danh 'trạm sạc năng lượng' của phòng – người luôn lan tỏa sự vui vẻ, chân thành và tinh thần kết nối. Góp phần tạo nên một tập thể gắn kết và đầy cảm hứng.",
+    icon: "❤️",
+    type: "individual",
+    role_filter: ["PM", "BA", "DEV"],
     sort_order: 5,
   },
   {
-    id: "challenger",
-    name: "The Challenger",
-    description: "Dự án Thách thức - Vượt khó ngoạn mục, kiên cường trước áp lực",
-    icon: "🔥",
+    id: "dream-team",
+    name: "The Project of the Year",
+    description: "Vinh danh dự án kiểu mẫu – nơi PM-BA-DEV phối hợp hoàn hảo, về đích đúng hạn với tỷ lệ lỗi thấp, nhận feedback tốt từ khách hàng. Một team 'Happy', mọi thành viên hiểu rõ vai trò và hỗ trợ nhau nhịp nhàng.",
+    icon: "💎",
     type: "project",
     role_filter: ["PROJECT"],
     sort_order: 6,
   },
+  {
+    id: "challenger",
+    name: "The Project Challenge of the Year",
+    description: "Vinh danh 'Biệt đội lính thủy đánh bộ' – dám đương đầu với thử thách khắc nghiệt, công nghệ mới, deadline cháy. Lội ngược dòng đưa dự án về trạng thái ổn định với tinh thần thép và đoàn kết.",
+    icon: "🔥",
+    type: "project",
+    role_filter: ["PROJECT"],
+    sort_order: 7,
+  },
+
 ];
 
 // =============================================
@@ -86,12 +97,6 @@ export const defaultSettings = {
   // Thời gian đóng bình chọn (ISO string)
   voting_end_time: "2025-01-31T23:59:59+07:00",
 
-  // Số tiền mỗi hạng mục dự đoán (VND)
-  vote_cost: 5000,
-
-  // Số tiền donate thêm vào giải thưởng (VND)
-  donate_amount: 0,
-
   // Tên sự kiện
   event_name: "ISCGP Awards 2025",
 
@@ -100,6 +105,9 @@ export const defaultSettings = {
 
   // Trạng thái hoạt động
   is_active: true,
+
+  // Hiển thị Top 3 Thánh Dự Đoán trên trang kết quả
+  show_top_predictors: false,
 };
 
 // =============================================
@@ -131,13 +139,15 @@ export function getCategoryById(categoryId) {
 }
 
 /**
- * Tính tổng số selections cần thiết (bao gồm sub-categories)
+ * Tính tổng số selections cần thiết cho VOTING (không tính honorOnly)
+ * Sub-categories có honorOnly: true chỉ dùng cho vinh danh, không cần dự đoán
  */
 export function getTotalRequiredSelections() {
   let count = 0;
   categories.forEach((cat) => {
     if (cat.sub_categories) {
-      count += cat.sub_categories.length;
+      // Chỉ đếm sub-categories không phải honorOnly
+      count += cat.sub_categories.filter((sub) => !sub.honorOnly).length;
     } else {
       count += 1;
     }
@@ -146,13 +156,15 @@ export function getTotalRequiredSelections() {
 }
 
 /**
- * Lấy danh sách tất cả selection IDs (categories + sub-categories)
+ * Lấy danh sách tất cả selection IDs cho VOTING (không tính honorOnly)
+ * Sub-categories có honorOnly: true chỉ dùng cho vinh danh
  */
 export function getAllSelectionIds() {
   const ids = [];
   categories.forEach((cat) => {
     if (cat.sub_categories) {
-      cat.sub_categories.forEach((sub) => ids.push(sub.id));
+      // Chỉ lấy sub-categories không phải honorOnly
+      cat.sub_categories.filter((sub) => !sub.honorOnly).forEach((sub) => ids.push(sub.id));
     } else {
       ids.push(cat.id);
     }

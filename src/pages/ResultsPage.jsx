@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { getCategoryWinners, findCorrectPredictionsByCategory, findCorrectPredictions, getAllUsersForAdmin } from "../lib/supabase";
+import { getCategoryWinners, findCorrectPredictionsByCategory, findCorrectPredictions, getAllUsersForAdmin, getSettings } from "../lib/supabase";
 import { categories } from "../config/votingConfig";
 import "./ResultsPage.css";
 
@@ -18,6 +18,14 @@ const CATEGORY_INFO = {
   "star-performer-dev": {
     subtitle: "The Code Master",
     description: "Code Sạch & Chất\nKhắc tinh của Bug khó\nĐồng đội tin cậy",
+  },
+  "star-performer-dev-2": {
+    subtitle: "The Code Master",
+    description: "Code Sạch & Chất\nKhắc tinh của Bug khó\nĐồng đội tin cậy",
+  },
+  "tech-leader": {
+    subtitle: "The Technical Guardian",
+    description: "Định hướng công nghệ\nQuyết định kỹ thuật đúng đắn\nDẫn dắt & kết nối đội ngũ",
   },
   "unsung-hero": {
     subtitle: "The Unsung Hero",
@@ -43,6 +51,16 @@ const CATEGORY_INFO = {
 
 // Helper để lấy tất cả category/sub-category theo thứ tự
 function getAllCategoriesOrdered() {
+  // Mapping tên ngắn gọn cho các hạng mục chính
+  const shortNames = {
+    "tech-leader": "Tech Lead",
+    "unsung-hero": "Silent Hero",
+    "innovator": "AI Pioneer",
+    "peoples-choice": "People's Choice",
+    "dream-team": "Project",
+    "challenger": "Challenger",
+  };
+
   const result = [];
   categories.forEach((cat) => {
     if (cat.sub_categories) {
@@ -50,7 +68,7 @@ function getAllCategoriesOrdered() {
         result.push({
           id: sub.id,
           name: `${cat.name} - ${sub.label}`,
-          shortName: sub.label,
+          shortName: sub.name, // Dùng tên ngắn: PM, BA, DEV (1), DEV (2)
           description: cat.description,
           icon: cat.icon,
           parentId: cat.id,
@@ -61,7 +79,7 @@ function getAllCategoriesOrdered() {
       result.push({
         id: cat.id,
         name: cat.name,
-        shortName: cat.name,
+        shortName: shortNames[cat.id] || cat.name, // Dùng tên rút gọn
         description: cat.description,
         icon: cat.icon,
         parentId: null,
@@ -79,6 +97,7 @@ export default function ResultsPage() {
   const [predictorsMap, setPredictorsMap] = useState({});
   const [topPredictors, setTopPredictors] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
+  const [settings, setSettings] = useState(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [leavingPage, setLeavingPage] = useState(null); // page đang trượt ra
   const [direction, setDirection] = useState("next");
@@ -153,9 +172,10 @@ export default function ResultsPage() {
 
   async function loadWinners() {
     try {
-      const [data, users] = await Promise.all([getCategoryWinners(), getAllUsersForAdmin()]);
+      const [data, users, settingsData] = await Promise.all([getCategoryWinners(), getAllUsersForAdmin(), getSettings()]);
       setWinners(data || []);
       setAllUsers(users || []);
+      setSettings(settingsData);
 
       if (data && data.length > 0) {
         const winnersObj = {};
@@ -351,8 +371,8 @@ export default function ResultsPage() {
               <h2 className="summary-title">THÁNH DỰ B2B</h2>
             </div>
 
-            {/* Top 3 Overall Predictors */}
-            {topPredictors.length > 0 && (
+            {/* Top 3 Overall Predictors - controlled by settings */}
+            {settings?.show_top_predictors && topPredictors.length > 0 && (
               <div className="top-predictors-podium">
                 <h3 className="podium-title">Top 3 Thánh Dự Đoán</h3>
                 <div className="podium">
@@ -390,7 +410,7 @@ export default function ResultsPage() {
                     <div key={category.id} className="cat-predictor-card">
                       <div className="cat-predictor-header">
                         <span className="cat-predictor-icon">{category.icon}</span>
-                        <span className="cat-predictor-name">{category.shortName}</span>
+                        <span className="cat-predictor-name">{category.name}</span>
                       </div>
                       {bestVoter ? (
                         <div className="cat-predictor-best">

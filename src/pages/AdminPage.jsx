@@ -904,20 +904,6 @@ export default function AdminPage() {
                     })()}
                   </div>
 
-                  {/* Vote Cost */}
-                  <div className="setting-row">
-                    <div className="setting-group">
-                      <label className="setting-label">💰 Phí mỗi lần dự đoán (VND)</label>
-                      <input type="number" className="setting-input" value={editedSettings.vote_cost || 0} onChange={(e) => handleSettingChange("vote_cost", parseInt(e.target.value) || 0)} min={0} step={1000} />
-                      <span className="setting-hint">Hiện tại: {formatCurrency(editedSettings.vote_cost || 0)}</span>
-                    </div>
-                    <div className="setting-group">
-                      <label className="setting-label">🎁 Số tiền donate thêm (VND)</label>
-                      <input type="number" className="setting-input" value={editedSettings.donate_amount || 0} onChange={(e) => handleSettingChange("donate_amount", parseInt(e.target.value) || 0)} min={0} step={1000} />
-                      <span className="setting-hint">Hiện tại: {formatCurrency(editedSettings.donate_amount || 0)}</span>
-                    </div>
-                  </div>
-
                   {/* Active Status */}
                   <div className="setting-group">
                     <label className="setting-label">🔘 Trạng thái hoạt động</label>
@@ -927,6 +913,18 @@ export default function AdminPage() {
                         <span className="toggle-slider"></span>
                       </label>
                       <span style={{ color: editedSettings.is_active ? "#10b981" : "#888" }}>{editedSettings.is_active ? "Đang mở bình chọn" : "Đã đóng bình chọn"}</span>
+                    </div>
+                  </div>
+
+                  {/* Show Top Predictors on Results Page */}
+                  <div className="setting-group">
+                    <label className="setting-label">🏆 Hiển thị Top 3 Thánh Dự Đoán (Trang kết quả)</label>
+                    <div className="setting-toggle-row">
+                      <label className="admin-toggle">
+                        <input type="checkbox" checked={editedSettings.show_top_predictors || false} onChange={(e) => handleSettingChange("show_top_predictors", e.target.checked)} />
+                        <span className="toggle-slider"></span>
+                      </label>
+                      <span style={{ color: editedSettings.show_top_predictors ? "#10b981" : "#888" }}>{editedSettings.show_top_predictors ? "Đang hiển thị" : "Đang ẩn"}</span>
                     </div>
                   </div>
 
