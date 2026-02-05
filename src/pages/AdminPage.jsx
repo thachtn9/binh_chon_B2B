@@ -300,8 +300,8 @@ export default function AdminPage() {
         setSlideshowUploadProgress(`Đang upload ${i + 1}/${total}: ${file.name}`);
         try {
           const compressed = await compressImage(file);
-          const imageUrl = await uploadImageToImgBB(compressed, apiKey);
-          await addSlideshowImage(imageUrl, voteUser?.id);
+          const { url, thumbUrl } = await uploadImageToImgBB(compressed, apiKey);
+          await addSlideshowImage(url, voteUser?.id, thumbUrl);
           success++;
         } catch (err) {
           console.error(`Failed to upload ${file.name}:`, err);
@@ -314,7 +314,6 @@ export default function AdminPage() {
       setSlideshowImages(updated);
       if (slideshowFileRef.current) slideshowFileRef.current.value = "";
 
-      alert(`Upload xong! Thành công: ${success}, Lỗi: ${failed}`);
     } catch (error) {
       console.error("Error uploading slideshow images:", error);
       alert("Lỗi upload: " + error.message);
@@ -325,7 +324,6 @@ export default function AdminPage() {
   };
 
   const handleDeleteSlideshowImage = async (id) => {
-    if (!window.confirm("Bạn có chắc muốn xóa ảnh này?")) return;
     try {
       await deleteSlideshowImage(id);
       const updated = await fetchSlideshowImages();
@@ -372,7 +370,6 @@ export default function AdminPage() {
     try {
       await updateSettings(editedSettings);
       setSettings(editedSettings);
-      alert("Cập nhật cài đặt thành công!");
     } catch (error) {
       console.error("Error saving settings:", error);
       alert("Có lỗi xảy ra khi lưu cài đặt: " + error.message);
@@ -1125,9 +1122,16 @@ export default function AdminPage() {
                 <p style={{ color: "rgba(255,255,255,0.4)", fontStyle: "italic" }}>Chưa có ảnh nào.</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  {slideshowImages.map((img, idx) => (
+                  {[...slideshowImages]
+                    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+                    .map((img, idx) => (
                     <div key={img.id} style={{ display: "flex", alignItems: "center", gap: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px", padding: "0.6rem 1rem", border: "1px solid rgba(255,255,255,0.1)" }}>
                       <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.8rem", minWidth: "24px" }}>{idx + 1}.</span>
+                      <img
+                        src={img.thumb_url || img.image_url}
+                        alt="thumbnail"
+                        style={{ width: "56px", height: "56px", objectFit: "cover", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.15)" }}
+                      />
                       <a href={img.image_url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: "0.85rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {img.image_url}
                       </a>

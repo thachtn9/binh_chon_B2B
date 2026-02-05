@@ -240,7 +240,8 @@ export default function HonoreeManager({ allNominees, currentUser }) {
 
         setIsUploading(true);
         try {
-          photoUrl = await uploadImageToImgBB(photoFile, imgbbApiKey);
+          const { url } = await uploadImageToImgBB(photoFile, imgbbApiKey);
+          photoUrl = url;
         } catch (uploadError) {
           alert("Lỗi upload ảnh: " + uploadError.message);
           setIsSaving(false);

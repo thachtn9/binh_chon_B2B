@@ -5034,6 +5034,36 @@ html {
   transform: scale(1.1);
 }
 
+.slideshow-extra-btn {
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.slideshow-extra-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.slideshow-extra-btn-floating {
+  position: absolute;
+  right: 32px;
+  bottom: 24px;
+  z-index: 100;
+  opacity: 0.2;
+  transition: opacity 0.3s ease;
+}
+
+.slideshow-extra-btn-floating:hover {
+  opacity: 1;
+}
+
 .slideshow-duration-control {
   display: flex;
   align-items: center;
@@ -5144,6 +5174,135 @@ html {
   z-index: 1;
 }
 
+/* Extra intro slide (black with typing text) */
+.slideshow-extra-intro {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  color: #fff;
+}
+
+.slideshow-closing-slide {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.slideshow-closing-slide .slideshow-fullscreen-img {
+  width: 100%;
+  height: 100%;
+}
+
+.slideshow-closing-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #fff;
+}
+
+.slideshow-extra-intro-inner {
+  position: relative;
+  width: 100%;
+  height: 40vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.slideshow-extra-line {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(1.6rem, 3.2vw, 3.2rem);
+  font-weight: 700;
+  letter-spacing: 0;
+  font-family: "JetBrains Mono", "Fira Code", "SFMono-Regular", ui-monospace, monospace;
+  white-space: nowrap;
+  max-width: 90vw;
+  opacity: 1;
+  animation: slideshow-fade-out var(--fade, 0.4s) ease forwards;
+  animation-delay: calc(var(--delay, 0s) + var(--typing, 1.2s) + var(--hold, 0.5s));
+}
+
+.slideshow-extra-text {
+  display: inline-block;
+  overflow: hidden;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+  clip-path: inset(0 100% 0 0);
+  animation: slideshow-typing var(--typing, 1.2s) steps(var(--chars, 20), end) forwards;
+  animation-delay: var(--delay, 0s);
+}
+
+.slideshow-extra-caret {
+  position: absolute;
+  top: 40%;
+  left: 0;
+  transform: translate(0, -50%);
+  width: 2px;
+  height: 1em;
+  background: rgba(255, 255, 255, 0.85);
+  opacity: 0;
+  animation: slideshow-caret-move var(--typing, 1.2s) steps(var(--chars, 20), end) forwards, slideshow-caret-hide 0s linear forwards;
+  animation-delay: var(--delay, 0s), calc(var(--delay, 0s) + var(--typing, 1.2s) + var(--hold, 0.5s) + var(--fade, 0.4s));
+}
+
+@keyframes slideshow-typing {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes slideshow-caret-move {
+  from {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(calc(var(--chars, 20) * 1ch), -50%);
+  }
+}
+
+@keyframes slideshow-caret-hide {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slideshow-fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slideshow-zoom-in {
+  from {
+    transform: scale(1);
+  }
+
+  to {
+    transform: scale(1.04);
+  }
+}
+
 .slideshow-fullscreen-image {
   width: 100%;
   height: 100%;
@@ -5166,6 +5325,10 @@ html {
 
 .slideshow-fullscreen-img.loaded {
   opacity: 1;
+}
+
+.slideshow-extra-zoom .slideshow-fullscreen-img.loaded {
+  animation: slideshow-zoom-in 12s ease-in-out both;
 }
 
 /* Loading spinner for images */
@@ -5694,5 +5857,26 @@ html {
 
   .slideshow-stat-value-full {
     font-size: 1.2rem;
+  }
+}
+
+.slideshow-closing-line {
+  font-size: clamp(3.2rem, 6.4vw, 6.4rem);
+  animation: none;
+}
+
+.slideshow-closing-line .slideshow-extra-text {
+  animation: slideshow-typing var(--typing, 1.2s) steps(var(--chars, 20), end) forwards;
+  animation-delay: var(--delay, 0s);
+}
+
+.slideshow-closing-line .slideshow-extra-caret {
+  animation: slideshow-caret-move var(--typing, 1.2s) steps(var(--chars, 20), end) forwards, slideshow-caret-blink 0.8s step-end infinite;
+  animation-delay: var(--delay, 0s), calc(var(--delay, 0s) + var(--typing, 1.2s));
+}
+
+@keyframes slideshow-caret-blink {
+  50% {
+    opacity: 0;
   }
 }

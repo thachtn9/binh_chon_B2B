@@ -343,7 +343,7 @@ export default function ResultsPage() {
 
   // Fireworks effect on summary page when champion exists
   useEffect(() => {
-    const hasChampion = topPredictors.length > 0 && topPredictors[0]?.correct_count >= 6;
+    const hasChampion = topPredictors.length > 0 && topPredictors[0]?.correct_count >= 5;
     const isOnSummaryPage = currentPage === totalPages - 1;
 
     if (!hasChampion || !isOnSummaryPage || !fireworksCanvasRef.current || !settings?.show_top_predictors) return;
@@ -613,7 +613,7 @@ export default function ResultsPage() {
                         <div className="podium-medal">🥇</div>
                         <div className="podium-empty-avatar">?</div>
                         <div className="podium-empty-text">Chưa có ai</div>
-                        <div className="podium-empty-desc">Cần đúng từ 6 hạng mục trở lên</div>
+                        <div className="podium-empty-desc">Cần đúng trên 50% các hạng mục</div>
                       </div>
                       {topPredictors.slice(0, 2).map((predictor, index) => (
                         <div key={predictor.session_id} className={`podium-item podium-${index + 2}`}>

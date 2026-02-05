@@ -1661,7 +1661,7 @@ export async function bulkUpdateUserAvatars(participants, onProgress) {
  * Upload ảnh lên ImgBB (free image hosting)
  * @param {File} imageFile - File ảnh cần upload
  * @param {string} apiKey - ImgBB API key (get from https://api.imgbb.com/)
- * @returns {string} - URL của ảnh đã upload
+ * @returns {{ url: string, thumbUrl: string }} - URL ảnh và URL ảnh nhỏ (thumb)
  */
 export async function uploadImageToImgBB(imageFile, apiKey) {
   if (!apiKey) {
@@ -1688,7 +1688,14 @@ export async function uploadImageToImgBB(imageFile, apiKey) {
       throw new Error(data.error?.message || "Upload thất bại");
     }
 
-    return data.data.url;
+    const url = data?.data?.url;
+    const thumbUrl = data?.data?.thumb?.url || data?.data?.display_url || url;
+
+    if (!url) {
+      throw new Error("Upload thành công nhưng không lấy được URL ảnh");
+    }
+
+    return { url, thumbUrl };
   } catch (err) {
     console.error("Error uploading image to ImgBB:", err);
     throw err;
@@ -1953,13 +1960,14 @@ export async function fetchSlideshowImages() {
  * @param {string} createdBy - ID user tạo
  * @returns {Object} - Record vừa tạo
  */
-export async function addSlideshowImage(imageUrl, createdBy) {
+export async function addSlideshowImage(imageUrl, createdBy, thumbUrl = null) {
   if (!supabase) {
     const stored = localStorage.getItem("slideshow_images");
     const images = stored ? JSON.parse(stored) : [];
     const newImage = {
       id: `demo_${Date.now()}`,
       image_url: imageUrl,
+      thumb_url: thumbUrl,
       created_by: createdBy,
       created_at: new Date().toISOString(),
     };
@@ -1973,6 +1981,7 @@ export async function addSlideshowImage(imageUrl, createdBy) {
       .from("slideshow_images")
       .insert({
         image_url: imageUrl,
+        thumb_url: thumbUrl,
         created_by: createdBy,
       })
       .select()

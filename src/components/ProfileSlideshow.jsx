@@ -1,7 +1,22 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import slideshowConfig from "../config/slideshowConfig";
+import { fetchSlideshowImages } from "../lib/supabase";
 
-const DEFAULT_DURATION = 5; // seconds
+const DEFAULT_DURATION = 3; // seconds
+const EXTRA_INTRO_LINES = [
+  "CHÀO CÁC BẠN !",
+  "NGÀY HÔM NAY CỦA CÁC BẠN NHƯ THẾ NÀO !",
+  "CÒN ĐÂY LÀ !",
+  "NGÀY HÔM NAY !",
+  "CỦA CHÚNG TA !",
+];
+const EXTRA_TYPING_DURATION = 2.5; // seconds
+const EXTRA_HOLD_DURATION = 0.7; // seconds
+const EXTRA_FADE_DURATION = 0.4; // seconds
+const EXTRA_LINE_TOTAL = EXTRA_TYPING_DURATION + EXTRA_HOLD_DURATION + EXTRA_FADE_DURATION;
+const EXTRA_INTRO_TOTAL_DURATION = (EXTRA_INTRO_LINES.length - 1) * EXTRA_LINE_TOTAL + EXTRA_TYPING_DURATION + EXTRA_HOLD_DURATION + EXTRA_FADE_DURATION;
+const CLOSING_TEXT = "THANK YOU!";
+const CLOSING_TOTAL_DURATION = EXTRA_TYPING_DURATION + EXTRA_HOLD_DURATION + EXTRA_FADE_DURATION;
 
 const roleBadgeColors = {
   PM: { bg: "#3b82f6", label: "Project Manager" },
@@ -42,11 +57,11 @@ function useImagePreloader(slides, currentIndex, preloadAhead = 10) {
 }
 
 // Sub-component: Full-screen image slide (opening/extra)
-function FullScreenImageSlide({ slide }) {
+function FullScreenImageSlide({ slide, isExtra = false }) {
   const [loaded, setLoaded] = useState(false);
 
   return (
-    <div className="slideshow-fullscreen-image">
+    <div className={`slideshow-fullscreen-image ${isExtra ? "slideshow-extra-zoom" : ""}`}>
       {!loaded && (
         <div className="slideshow-image-loading">
           <div className="slideshow-spinner" />
@@ -187,12 +202,63 @@ function CommentsSlide({ slide }) {
   );
 }
 
+// Sub-component: Black intro slide before extra images
+function ExtraIntroSlide() {
+  return (
+    <div className="slideshow-extra-intro">
+      <div className="slideshow-extra-intro-inner">
+        {EXTRA_INTRO_LINES.map((text, index) => (
+          <div
+            key={text}
+            className="slideshow-extra-line"
+            style={{
+              "--delay": `${index * EXTRA_LINE_TOTAL}s`,
+              "--typing": `${EXTRA_TYPING_DURATION}s`,
+              "--hold": `${EXTRA_HOLD_DURATION}s`,
+              "--fade": `${EXTRA_FADE_DURATION}s`,
+              "--chars": text.length,
+            }}
+          >
+            <span className="slideshow-extra-text">{text}</span>
+            <span className="slideshow-extra-caret" aria-hidden="true" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Sub-component: Closing slide using opening-1 image with typing text
+function ClosingSlide({ imageUrl, alt }) {
+  return (
+    <div className="slideshow-closing-slide">
+      <img src={imageUrl} alt={alt || ""} className="slideshow-fullscreen-img loaded" draggable={false} />
+      <div className="slideshow-closing-overlay">
+        <div
+          className="slideshow-extra-line slideshow-closing-line"
+          style={{
+            "--delay": `0s`,
+            "--typing": `${EXTRA_TYPING_DURATION}s`,
+            "--hold": `${EXTRA_HOLD_DURATION}s`,
+            "--fade": `${EXTRA_FADE_DURATION}s`,
+            "--chars": CLOSING_TEXT.length,
+          }}
+        >
+          <span className="slideshow-extra-text">{CLOSING_TEXT}</span>
+          <span className="slideshow-extra-caret" aria-hidden="true" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfileSlideshow({ nominees, comments, extraImages = [], onClose }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [slideDirection, setSlideDirection] = useState("next");
   const [transitionType, setTransitionType] = useState("slide"); // "slide" hoặc "fade"
   const [isAnimating, setIsAnimating] = useState(false);
+  const [extraQueue, setExtraQueue] = useState(() => extraImages);
   const [duration, setDuration] = useState(() => {
     const saved = localStorage.getItem("slideshow_duration");
     const parsed = saved ? Number(saved) : DEFAULT_DURATION;
@@ -201,19 +267,70 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
   });
   const progressRef = useRef(null);
   const intervalRef = useRef(null);
-  const startTimeRef = useRef(Date.now());
+  const startTimeRef = useRef(null);
   const isAnimatingRef = useRef(false); // Ref để tránh stale closure
   const currentIndexRef = useRef(0); // Ref để track currentIndex cho callbacks
   const slidesLengthRef = useRef(0); // Ref để track slides.length cho callbacks
+  
+  // Initialize startTimeRef on mount
+  useEffect(() => {
+    if (startTimeRef.current === null) {
+      startTimeRef.current = Date.now();
+    }
+  }, []);
+
+  // Keep extra images queue in sync with props (only append new ones to preserve order)
+  useEffect(() => {
+    if (!extraImages || extraImages.length === 0) return;
+    setExtraQueue((prev) => {
+      const existing = new Set(prev.map((img) => img.id));
+      const merged = [...prev];
+      extraImages.forEach((img) => {
+        if (!existing.has(img.id)) {
+          merged.push(img);
+          existing.add(img.id);
+        }
+      });
+      return merged;
+    });
+  }, [extraImages]);
+
+  // Poll DB every 5s to append newly uploaded extra images to the queue
+  useEffect(() => {
+    let isActive = true;
+
+    const poll = async () => {
+      try {
+        const data = await fetchSlideshowImages();
+        if (!isActive || !data || data.length === 0) return;
+        setExtraQueue((prev) => {
+          const existing = new Set(prev.map((img) => img.id));
+          const newOnes = data.filter((img) => !existing.has(img.id));
+          if (newOnes.length === 0) return prev;
+          return [...prev, ...newOnes];
+        });
+      } catch (err) {
+        console.error("Error polling slideshow images:", err);
+      }
+    };
+
+    poll();
+    const id = setInterval(poll, 5000);
+    return () => {
+      isActive = false;
+      clearInterval(id);
+    };
+  }, []);
 
   // Build unified slides array
   const slides = useMemo(() => {
     const result = [];
 
+    const openingSlides = slideshowConfig.openingSlides.filter((s) => s.url && s.url.trim() !== "");
+    const opening1 = openingSlides.find((s) => s.id === "opening-1") || openingSlides[0];
+
     // 1. Opening slides (skip those with empty url)
-    slideshowConfig.openingSlides
-      .filter((s) => s.url && s.url.trim() !== "")
-      .forEach((slide) => {
+    openingSlides.forEach((slide) => {
         result.push({
           type: "opening",
           id: slide.id,
@@ -244,7 +361,14 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
     });
 
     // 3. Extra images from database (after profiles)
-    extraImages.forEach((img) => {
+    if (extraQueue.length > 0) {
+      result.push({
+        type: "extra-intro",
+        id: "extra-intro",
+      });
+    }
+
+    extraQueue.forEach((img) => {
       if (img.image_url && img.image_url.trim() !== "") {
         result.push({
           type: "extra",
@@ -255,25 +379,49 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
       }
     });
 
+    if (extraQueue.length > 0 && opening1) {
+      result.push({
+        type: "closing",
+        id: "closing",
+        imageUrl: opening1.url,
+        alt: opening1.alt,
+      });
+    }
+
     return result;
-  }, [nominees, comments, extraImages]);
+  }, [nominees, comments, extraQueue]);
+
+  const extraStartIndex = useMemo(() => slides.findIndex((s) => s.type === "extra-intro" || s.type === "extra"), [slides]);
 
   // Cập nhật refs ngay khi slides thay đổi
-  slidesLengthRef.current = slides.length;
+  useEffect(() => {
+    slidesLengthRef.current = slides.length;
+  }, [slides.length]);
 
   // Preload images ahead
   useImagePreloader(slides, currentIndex, slideshowConfig.preloadAhead);
 
   const currentSlide = slides[currentIndex];
 
-  const isFullScreenSlide = currentSlide && (currentSlide.type === "opening" || currentSlide.type === "extra" || currentSlide.type === "profile" || currentSlide.type === "comments");
+  const isFullScreenSlide =
+    currentSlide &&
+    (currentSlide.type === "opening" || currentSlide.type === "extra" || currentSlide.type === "extra-intro" || currentSlide.type === "closing" || currentSlide.type === "profile" || currentSlide.type === "comments");
 
   // Calculate effective duration (base + bonus for comments)
   // Logic: +2s per comment, max +10s
   const effectiveDuration = useMemo(() => {
+    if (currentSlide?.type === "extra-intro") {
+      return Math.max(duration, EXTRA_INTRO_TOTAL_DURATION);
+    }
+    if (currentSlide?.type === "closing") {
+      return Math.max(duration, CLOSING_TOTAL_DURATION);
+    }
+    if (currentSlide?.type === "extra") {
+      return duration + 2;
+    }
     let bonus = 0;
     if (currentSlide?.type === "comments" && currentSlide.comments?.length > 0) {
-      bonus = Math.min(currentSlide.comments.length * 2, 6);
+      bonus = Math.min(currentSlide.comments.length * 1.5, 6);
     }
     return duration + bonus;
   }, [duration, currentSlide]);
@@ -297,6 +445,10 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
         const extraIndex = extraSlides.findIndex((s) => s.id === currentSlide.id) + 1;
         return `Ảnh bổ sung ${extraIndex}/${extraSlides.length}`;
       }
+      case "extra-intro":
+        return "Ảnh bổ sung";
+      case "closing":
+        return "Kết thúc";
       default:
         return `${currentIndex + 1} / ${slides.length}`;
     }
@@ -333,17 +485,22 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
   );
 
   // Cập nhật currentIndexRef đồng bộ
-  currentIndexRef.current = currentIndex;
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
 
   const goNext = useCallback(() => {
     const nextIndex = currentIndexRef.current + 1;
     if (nextIndex >= slidesLengthRef.current) {
       // End of slideshow
+      if (slides[currentIndexRef.current]?.type === "closing") {
+        return;
+      }
       onClose();
       return;
     }
     goToSlide(nextIndex, "next");
-  }, [goToSlide, onClose]);
+  }, [goToSlide, onClose, slides]);
 
   const goPrev = useCallback(() => {
     if (currentIndexRef.current <= 0) return;
@@ -354,6 +511,13 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
     setIsPaused((prev) => !prev);
     startTimeRef.current = Date.now();
   }, []);
+
+  const goToExtra = useCallback(() => {
+    if (extraStartIndex < 0) return;
+    if (extraStartIndex === currentIndexRef.current) return;
+    const direction = extraStartIndex > currentIndexRef.current ? "next" : "prev";
+    goToSlide(extraStartIndex, direction);
+  }, [extraStartIndex, goToSlide]);
 
   // Save duration to localStorage
   useEffect(() => {
@@ -434,8 +598,13 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
   const renderSlideContent = () => {
     switch (currentSlide.type) {
       case "opening":
+        return <FullScreenImageSlide key={currentSlide.id} slide={currentSlide} />;
       case "extra":
-        return <FullScreenImageSlide slide={currentSlide} />;
+        return <FullScreenImageSlide key={currentSlide.id} slide={currentSlide} isExtra />;
+      case "extra-intro":
+        return <ExtraIntroSlide />;
+      case "closing":
+        return <ClosingSlide imageUrl={currentSlide.imageUrl} alt={currentSlide.alt} />;
       case "profile":
         return <ProfileImageSlide slide={currentSlide} />;
       case "comments":
@@ -488,6 +657,12 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
             </button>
           </div>
         </div>
+
+        {extraStartIndex >= 0 && (
+          <button className="slideshow-extra-btn slideshow-extra-btn-floating" onClick={goToExtra} title="Đến phần ảnh bổ sung">
+            Extra
+          </button>
+        )}
       </div>
     </div>
   );
