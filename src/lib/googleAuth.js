@@ -33,8 +33,12 @@ class GoogleAuthService {
         this.userProfile = null;
         this.tokenKey = "google_auth_token";
         this.userKey = "google_user_profile";
+        this.sessionKey = "google_session_expiry";
         /** @type {Array<(profile: UserProfile | null) => void>} */
         this.profileLoadedCallbacks = [];
+
+        // Session duration: 7 days (in milliseconds)
+        this.sessionDuration = 7 * 24 * 60 * 60 * 1000;
 
         this.loadTokenFromStorage();
         this.loadUserProfileFromStorage();
@@ -46,10 +50,15 @@ class GoogleAuthService {
             const stored = localStorage.getItem(this.tokenKey);
             if (stored) {
                 const token = JSON.parse(stored);
-                if (token.expires_at > Date.now()) {
-                    this.tokenInfo = token;
-                } else {
+                // Keep token info even if expired - session might still be valid
+                this.tokenInfo = token;
+
+                // Only clear if session also expired
+                const sessionExpiry = localStorage.getItem(this.sessionKey);
+                if (token.expires_at <= Date.now() && (!sessionExpiry || parseInt(sessionExpiry, 10) <= Date.now())) {
                     localStorage.removeItem(this.tokenKey);
+                    localStorage.removeItem(this.sessionKey);
+                    this.tokenInfo = null;
                 }
             }
         } catch (e) {
@@ -89,6 +98,10 @@ class GoogleAuthService {
 
                 localStorage.setItem(this.tokenKey, JSON.stringify(this.tokenInfo));
 
+                // Save session expiry (7 days from now)
+                const sessionExpiry = Date.now() + this.sessionDuration;
+                localStorage.setItem(this.sessionKey, sessionExpiry.toString());
+
                 // Fetch user profile info
                 this.fetchUserProfile(accessToken);
 
@@ -100,9 +113,17 @@ class GoogleAuthService {
 
     /**
      * Check if user is authenticated
+     * Uses session expiry (7 days) instead of token expiry (1 hour)
      * @returns {boolean}
      */
     isAuthenticated() {
+        // Check session expiry first (longer duration)
+        const sessionExpiry = localStorage.getItem(this.sessionKey);
+        if (sessionExpiry && parseInt(sessionExpiry, 10) > Date.now()) {
+            // Session still valid - user profile is enough
+            return this.userProfile !== null;
+        }
+        // Fallback to token check
         return this.tokenInfo !== null && this.tokenInfo.expires_at > Date.now();
     }
 
@@ -196,6 +217,7 @@ class GoogleAuthService {
         this.userProfile = null;
         localStorage.removeItem(this.tokenKey);
         localStorage.removeItem(this.userKey);
+        localStorage.removeItem(this.sessionKey);
         window.location.reload();
     }
 }

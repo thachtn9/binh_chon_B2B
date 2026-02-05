@@ -200,7 +200,8 @@ function runFireworks(canvas) {
 export default function ResultsPage() {
   const { voteUser } = useAuth();
   const [winners, setWinners] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [imagesPreloaded, setImagesPreloaded] = useState(false);
   const [predictorsMap, setPredictorsMap] = useState({});
   const [topPredictors, setTopPredictors] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
@@ -209,14 +210,77 @@ export default function ResultsPage() {
   const [leavingPage, setLeavingPage] = useState(null); // page đang trượt ra
   const [direction, setDirection] = useState("next");
   const [isAnimating, setIsAnimating] = useState(false);
+  const [preloadProgress, setPreloadProgress] = useState(0);
+
+  // Tổng hợp loading state
+  const loading = !dataLoaded || !imagesPreloaded;
 
   // Predictor reveal animation states
   const [revealedCategories, setRevealedCategories] = useState(new Set());
   const [rollingCategory, setRollingCategory] = useState(null);
   const [rollingPerson, setRollingPerson] = useState(null);
 
+  // Modal state for predictor reveal
+  const [showPredictorModal, setShowPredictorModal] = useState(false);
+  const [modalCategoryId, setModalCategoryId] = useState(null);
+
   // Fireworks canvas ref
   const fireworksCanvasRef = useRef(null);
+
+  // Preload winner award photos when data is loaded
+  useEffect(() => {
+    if (!dataLoaded || imagesPreloaded) return;
+
+    // Nếu không có winners, không cần preload
+    if (winners.length === 0) {
+      setImagesPreloaded(true);
+      return;
+    }
+
+    const imagesToPreload = [];
+
+    // Chỉ preload award photos và avatar của winners
+    winners.forEach((w) => {
+      if (w.award_photo_url) {
+        imagesToPreload.push(w.award_photo_url);
+      }
+      if (w.winner?.url_avatar) {
+        imagesToPreload.push(w.winner.url_avatar);
+      }
+    });
+
+    // Nếu không có ảnh nào cần preload
+    if (imagesToPreload.length === 0) {
+      setImagesPreloaded(true);
+      return;
+    }
+
+    // Preload images with progress tracking
+    const totalImages = imagesToPreload.length;
+    let loadedCount = 0;
+
+    const preloadPromises = imagesToPreload.map((src) => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          loadedCount++;
+          setPreloadProgress(Math.round((loadedCount / totalImages) * 100));
+          resolve();
+        };
+        img.onerror = () => {
+          loadedCount++;
+          setPreloadProgress(Math.round((loadedCount / totalImages) * 100));
+          resolve(); // Continue even if image fails
+        };
+        img.src = src;
+      });
+    });
+
+    Promise.all(preloadPromises).then(() => {
+      setImagesPreloaded(true);
+      console.log(`Preloaded ${totalImages} winner images`);
+    });
+  }, [dataLoaded, winners, imagesPreloaded]);
 
   const allCategories = getAllCategoriesOrdered();
 
@@ -229,6 +293,13 @@ export default function ResultsPage() {
   const goToPage = useCallback(
     (pageIndex) => {
       if (isAnimating || pageIndex === currentPage || pageIndex < 0 || pageIndex >= totalPages) return;
+
+      // Đóng modal khi chuyển tab
+      if (showPredictorModal && !rollingCategory) {
+        setShowPredictorModal(false);
+        setModalCategoryId(null);
+      }
+
       const dir = pageIndex > currentPage ? "next" : "prev";
       setDirection(dir);
       setLeavingPage(currentPage);
@@ -239,7 +310,7 @@ export default function ResultsPage() {
         setIsAnimating(false);
       }, 450);
     },
-    [currentPage, isAnimating, totalPages]
+    [currentPage, isAnimating, totalPages, showPredictorModal, rollingCategory]
   );
 
   const nextPage = useCallback(() => goToPage(currentPage + 1), [currentPage, goToPage]);
@@ -323,8 +394,9 @@ export default function ResultsPage() {
       }
     } catch (error) {
       console.error("Error loading winners:", error);
+      setImagesPreloaded(true); // Nếu lỗi, không cần đợi preload
     } finally {
-      setLoading(false);
+      setDataLoaded(true);
     }
   }
 
@@ -361,6 +433,9 @@ export default function ResultsPage() {
       return;
     }
 
+    // Mở modal và bắt đầu animation
+    setModalCategoryId(categoryId);
+    setShowPredictorModal(true);
     setRollingCategory(categoryId);
 
     // Số người chạy chậm cuối cùng trước winner (2-4 người)
@@ -416,7 +491,7 @@ export default function ResultsPage() {
     const runStep = () => {
       step++;
       if (step >= sequence.length) {
-        // Kết thúc - hiện winner
+        // Kết thúc - hiện winner, giữ modal mở
         setRollingPerson(null);
         setRollingCategory(null);
         setRevealedCategories((prev) => new Set([...prev, categoryId]));
@@ -429,13 +504,13 @@ export default function ResultsPage() {
       let delay;
       if (remaining > slowTailCount + 1) {
         // Giai đoạn nhanh: 15-20 người đầu
-        delay = 90 + Math.random() * 400; // 150-250ms
+        delay = 90 + Math.random() * 300; // 150-250ms
       } else if (remaining > 1) {
         // Giai đoạn chậm: 2-4 người cuối trước winner (2-3s mỗi người)
-        delay = 1500 + Math.random() * 1000; // 2000-3000ms
+        delay = 1000 + Math.random() * 500; // 2000-3000ms
       } else {
         // Bước cuối cùng -> winner
-        delay = 3000; // 4s suspense trước khi hiện winner
+        delay = 2500; // 4s suspense trước khi hiện winner
       }
 
       setTimeout(runStep, delay);
@@ -450,7 +525,12 @@ export default function ResultsPage() {
       <div className="results-page">
         <div className="results-loading">
           <div className="loading-spinner"></div>
-          <p>Đang tải kết quả vinh danh...</p>
+          <p>{!dataLoaded ? "Đang tải dữ liệu..." : `Đang tải hình ảnh... ${preloadProgress}%`}</p>
+          {dataLoaded && (
+            <div className="preload-progress-bar">
+              <div className="preload-progress-fill" style={{ width: `${preloadProgress}%` }}></div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -463,7 +543,7 @@ export default function ResultsPage() {
         <div className="results-coming-soon">
           <div className="coming-soon-icon">🏆</div>
           <h1>Sắp Công Bố</h1>
-          <p>Kết quả vinh danh sẽ được công bố sau khi kết thúc thời gian bình chọn.</p>
+          <p>Kết quả vinh danh sắp được công bố.</p>
           <Link to="/" className="btn btn-gold">
             Về trang chủ
           </Link>
@@ -655,23 +735,6 @@ export default function ResultsPage() {
                   </button>
                 )}
 
-                {/* Đang rolling -> hiện slot machine */}
-                {rollingCategory === category.id && rollingPerson && (
-                  <div className="predictor-card predictor-rolling">
-                    <div className="predictor-header">
-                      <span className="predictor-icon">🎰</span>
-                      <span>Đang tìm kiếm...</span>
-                    </div>
-                    <div className="predictor-content rolling-content">
-                      <img src={rollingPerson.voter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(rollingPerson.voter_name || "U")}&background=random&size=60`} alt="" className="predictor-avatar rolling-avatar" key={rollingPerson.voter_name} />
-                      <div className="predictor-info">
-                        <div className="predictor-name rolling-name">{rollingPerson.voter_full_name || rollingPerson.voter_name}</div>
-                        {rollingPerson.voter_username && <div className="predictor-username">@{rollingPerson.voter_username}</div>}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* Đã reveal -> hiện kết quả */}
                 {revealedCategories.has(category.id) && (
                   <div className="predictor-card predictor-revealed">
@@ -702,8 +765,75 @@ export default function ResultsPage() {
     );
   }
 
+  // Close modal handler
+  function closePredictorModal() {
+    if (!rollingCategory) {
+      // Chỉ đóng khi không đang chạy animation
+      setShowPredictorModal(false);
+      setModalCategoryId(null);
+    }
+  }
+
+  // Get modal category info
+  const modalCategory = modalCategoryId ? allCategories.find((c) => c.id === modalCategoryId) : null;
+  const modalPredictor = modalCategoryId ? predictorsMap[modalCategoryId] : null;
+
   return (
     <div className="results-page flip-book">
+      {/* Predictor Reveal Modal */}
+      {showPredictorModal && modalCategory && (
+        <div className="predictor-modal-overlay" onClick={closePredictorModal}>
+          <div className="predictor-modal" onClick={(e) => e.stopPropagation()}>
+            {/* Close button - chỉ hiện khi đã reveal xong */}
+            {!rollingCategory && (
+              <button className="predictor-modal-close" onClick={closePredictorModal}>
+                ✕
+              </button>
+            )}
+            <div className="predictor-modal-header">
+              <span className="predictor-modal-icon">{modalCategory.icon}</span>
+              <h3 className="predictor-modal-title">{modalCategory.name}</h3>
+            </div>
+
+            <div className="predictor-modal-content">
+              {/* Đang rolling */}
+              {rollingCategory === modalCategoryId && rollingPerson && (
+                <div className="modal-rolling-state">
+                  <div className="modal-rolling-label">
+                    <span className="slot-icon">🎰</span>
+                    <span>Đang tìm kiếm Thánh Dự...</span>
+                  </div>
+                  <div className="modal-rolling-person" key={rollingPerson.voter_name}>
+                    <img src={rollingPerson.voter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(rollingPerson.voter_name || "U")}&background=random&size=120`} alt="" className="modal-rolling-avatar" />
+                    <div className="modal-rolling-name">{rollingPerson.voter_full_name || rollingPerson.voter_name}</div>
+                    {rollingPerson.voter_username && <div className="modal-rolling-username">@{rollingPerson.voter_username}</div>}
+                  </div>
+                </div>
+              )}
+
+              {/* Đã reveal - hiện kết quả trong modal */}
+              {revealedCategories.has(modalCategoryId) && modalPredictor?.voters?.[0] && (
+                <div className="modal-revealed-state">
+                  <div className="modal-revealed-label">
+                    <span className="target-icon">🎯</span>
+                    <span>Thánh Dự Đoán</span>
+                  </div>
+                  <div className="modal-revealed-person">
+                    <img src={modalPredictor.voters[0].voter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(modalPredictor.voters[0].voter_name || "U")}&background=random&size=120`} alt={modalPredictor.voters[0].voter_name} className="modal-revealed-avatar" />
+                    <div className="modal-revealed-name">{modalPredictor.voters[0].voter_full_name}</div>
+                    {modalPredictor.voters[0].voter_username && <div className="modal-revealed-username">@{modalPredictor.voters[0].voter_username}</div>}
+                    <div className="modal-revealed-stats">
+                      Dự đoán: {modalPredictor.voters[0].predicted_count} phiếu
+                      {modalPredictor.voters[0].prediction_diff === 0 ? <span className="exact-match"> (Chính xác!)</span> : <span className="diff"> (Sai lệch: {modalPredictor.voters[0].prediction_diff})</span>}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Quick Navigation Bar */}
       <div className="flip-nav-bar">
         <div className="flip-nav-items">
