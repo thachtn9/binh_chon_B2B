@@ -25,9 +25,11 @@ export default function Header() {
           <Link to="/vote" className={`nav-link ${isActive("/vote") ? "active" : ""}`}>
             Dự đoán
           </Link>
-          <a href="https://lucky-lixi-p9bkh.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" className="nav-link">
-            🧧 Lì Xì
-          </a>
+          {voteUser?.is_admin && (
+            <a href="https://lucky-lixi-p9bkh.ondigitalocean.app/" target="_blank" rel="noopener noreferrer" className="nav-link">
+              🧧 Lì Xì
+            </a>
+          )}
           {voteUser?.is_admin && (
             <Link to="/results" className={`nav-link ${isActive("/results") ? "active" : ""}`}>
               Kết Quả
