@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { fetchNominees, addComment, fetchAllComments, fetchNomineeByIdFresh, fetchCommentsWithProfile, fetchYEBSponsorship, formatCurrency, fetchSlideshowImages } from "../lib/supabase";
+import { fetchNominees, addComment, fetchAllComments, fetchAllCommentsForAdmin, fetchNomineeByIdFresh, fetchCommentsWithProfile, fetchYEBSponsorship, formatCurrency, fetchSlideshowImages } from "../lib/supabase";
 import NomineeDetailModal from "../components/NomineeDetailModal";
 import ProfileSlideshow from "../components/ProfileSlideshow";
 
@@ -244,6 +244,7 @@ export default function HomePage() {
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
   const [slideshowImages, setSlideshowImages] = useState([]);
+  const [adminComments, setAdminComments] = useState(null);
 
   // Lazy load intersection observer
   const { visibleItems, observe } = useIntersectionObserver();
@@ -517,6 +518,65 @@ export default function HomePage() {
     }
   };
 
+  // Handle open slideshow
+  const handleOpenSlideshow = async () => {
+    try {
+      const { default: config } = await import("../config/slideshowConfig");
+
+      if (config.showAdminComments && voteUser?.is_admin) {
+        // Fetch admin comments (unfiltered, non-anonymous)
+        const rawComments = await fetchAllCommentsForAdmin();
+
+        // Group by nominee_id
+        const grouped = {};
+        // Initialize with empty arrays for all nominees to be safe
+        nominees.forEach((n) => {
+          grouped[n.id] = [];
+        });
+
+        rawComments.forEach((c) => {
+          // Normalize structure to match public comments if needed
+          // Public comments have: id, content, commenter_id, commenter_name, commenter_avatar, is_anonymous, created_at...
+          // Admin comments from fetchAllCommentsForAdmin have: id, content, commenter_email, commenter_name, is_anonymous, is_visible, created_at, nominee: {...}
+          // We need to ensure ProfileSlideshow can handle this.
+          // ProfileSlideshow uses: c.content, c.created_at, c.is_anonymous, c.commenter_name, c.commenter_avatar
+
+          // Map admin comment structure to UI structure
+          const mappedComment = {
+            ...c,
+            nominee_id: c.nominee.id,
+            // If is_anonymous is true in DB, but we want to show real name in admin mode
+            // We can set is_anonymous to false for display locally, OR handle it in the UI.
+            // The prompt says "bỏ ẩn danh các comment" (remove anonymity).
+            // So we effectively treat them as not anonymous.
+            is_anonymous: false, // Force reveal
+            original_is_anonymous: c.is_anonymous, // Keep track if needed
+            // For avatar, admin query doesn't join commenter profile for avatar url directly in the top level select in fetchAllCommentsForAdmin?
+            // Let's check fetchAllCommentsForAdmin in supabase.js
+            // It selects: id, content, commenter_email, commenter_name, is_anonymous, is_visible, created_at, nominee: {...}
+            // It DOES NOT select commenter_avatar or commenter_url_avatar.
+            // Wait, fetchAllComments (public) selects * from comments_public which includes commenter_avatar.
+            // We might need to update fetchAllCommentsForAdmin to include avatar info.
+            commenter_avatar: c.commenter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.commenter_name || "User")}&size=48&background=6366f1&color=fff`
+          };
+
+          if (!grouped[mappedComment.nominee_id]) {
+            grouped[mappedComment.nominee_id] = [];
+          }
+          grouped[mappedComment.nominee_id].push(mappedComment);
+        });
+
+        setAdminComments(grouped);
+      } else {
+        setAdminComments(null);
+      }
+    } catch (err) {
+      console.error("Error preparing slideshow comments:", err);
+    } finally {
+      setIsSlideshowOpen(true);
+    }
+  };
+
   // Handle like change from modal - update nominees array
   const handleLikeChange = (nomineeId) => {
     setNominees((prev) => prev.map((n) => (n.id === nomineeId ? { ...n, like_count: (n.like_count || 0) + 1 } : n)));
@@ -614,7 +674,7 @@ export default function HomePage() {
                 {voteUser?.is_admin && (
                   <button
                     className="slideshow-btn"
-                    onClick={() => setIsSlideshowOpen(true)}
+                    onClick={handleOpenSlideshow}
                     onMouseEnter={() => {
                       import("../config/slideshowConfig").then(({ default: config }) => {
                         config.openingSlides
@@ -711,7 +771,7 @@ export default function HomePage() {
       <QRDonateModal isOpen={isQRModalOpen} onClose={() => setIsQRModalOpen(false)} user={user} />
 
       {/* Profile Slideshow */}
-      {isSlideshowOpen && <ProfileSlideshow nominees={nominees} comments={comments} extraImages={slideshowImages} onClose={() => setIsSlideshowOpen(false)} />}
+      {isSlideshowOpen && <ProfileSlideshow nominees={nominees} comments={adminComments || comments} extraImages={slideshowImages} onClose={() => setIsSlideshowOpen(false)} />}
     </main>
   );
 }

@@ -191,6 +191,7 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [slideDirection, setSlideDirection] = useState("next");
+  const [transitionType, setTransitionType] = useState("slide"); // "slide" hoặc "fade"
   const [isAnimating, setIsAnimating] = useState(false);
   const [duration, setDuration] = useState(() => {
     const saved = localStorage.getItem("slideshow_duration");
@@ -272,7 +273,7 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
   const effectiveDuration = useMemo(() => {
     let bonus = 0;
     if (currentSlide?.type === "comments" && currentSlide.comments?.length > 0) {
-      bonus = Math.min(currentSlide.comments.length * 2, 10);
+      bonus = Math.min(currentSlide.comments.length * 2, 6);
     }
     return duration + bonus;
   }, [duration, currentSlide]);
@@ -304,6 +305,20 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
   const goToSlide = useCallback(
     (index, direction) => {
       if (isAnimatingRef.current) return;
+
+      // Kiểm tra xem có phải đang chuyển từ profile sang comments của cùng nominee không
+      // VÀ đang đi tiến (next), không áp dụng khi đi lùi (prev)
+      const currentSlide = slides[currentIndexRef.current];
+      const nextSlide = slides[index];
+      const isProfileToComments =
+        direction === "next" &&
+        currentSlide?.type === "profile" &&
+        nextSlide?.type === "comments" &&
+        currentSlide?.nominee?.id === nextSlide?.nominee?.id;
+
+      // Đặt loại transition
+      setTransitionType(isProfileToComments ? "fade" : "slide");
+
       isAnimatingRef.current = true;
       setIsAnimating(true);
       setSlideDirection(direction);
@@ -314,7 +329,7 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
         startTimeRef.current = Date.now();
       }, 300);
     },
-    [] // Không có dependency vì sử dụng ref
+    [slides] // Thêm slides vào dependency
   );
 
   // Cập nhật currentIndexRef đồng bộ
@@ -456,7 +471,7 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
         )}
 
         {/* Slide content */}
-        <div className={`slideshow-slide ${isFullScreenSlide ? "slideshow-slide-fullscreen" : ""} ${isAnimating ? `slide-out-${slideDirection}` : "slide-in"}`}>{renderSlideContent()}</div>
+        <div className={`slideshow-slide ${isFullScreenSlide ? "slideshow-slide-fullscreen" : ""} ${isAnimating ? (transitionType === "fade" ? `slide-fade-out` : `slide-out-${slideDirection}`) : (transitionType === "fade" ? "slide-fade-in" : "slide-in")}`}>{renderSlideContent()}</div>
 
         {/* Controls */}
         <div className="slideshow-controls">

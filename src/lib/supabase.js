@@ -1201,6 +1201,7 @@ export async function fetchAllCommentsForAdmin() {
         content,
         commenter_email,
         commenter_name,
+        commenter_avatar,
         is_anonymous,
         is_visible,
         created_at,
@@ -1219,7 +1220,20 @@ export async function fetchAllCommentsForAdmin() {
       return [];
     }
 
-    return data || [];
+    // Fetch users for avatar mapping
+    const { data: users } = await supabase.from("users").select("email, url_avatar");
+    const avatarMap = new Map();
+    if (users) {
+      users.forEach((u) => {
+        if (u.email) avatarMap.set(u.email, u.url_avatar);
+      });
+    }
+
+    // Map avatar from users table if available
+    return (data || []).map((comment) => ({
+      ...comment,
+      commenter_avatar: avatarMap.get(comment.commenter_email) || comment.commenter_avatar,
+    }));
   } catch (err) {
     console.error("Error fetching all comments for admin:", err);
     return [];
@@ -1427,12 +1441,12 @@ export async function fetchCommentsWithProfile(nomineeId) {
       commenter_avatar: comment.commenter_url_avatar || comment.commenter_avatar,
       commenter: comment.commenter_id
         ? {
-            id: comment.commenter_id,
-            user_name: comment.commenter_user_name,
-            full_name: comment.commenter_full_name,
-            url_avatar: comment.commenter_url_avatar,
-            role: comment.commenter_role,
-          }
+          id: comment.commenter_id,
+          user_name: comment.commenter_user_name,
+          full_name: comment.commenter_full_name,
+          url_avatar: comment.commenter_url_avatar,
+          role: comment.commenter_role,
+        }
         : null,
     }));
   } catch (err) {

@@ -10,6 +10,9 @@ const slideshowConfig = {
   // Số ảnh preload trước (tối ưu hiệu năng)
   preloadAhead: 10,
 
+  // Sử dụng comments từ bảng gốc (không qua filter comments_public) và hiển thị tên thật
+  showAdminComments: true,
+
   // Ảnh mở đầu - hiển thị full-screen trước khi vào danh sách nominees
   openingSlides: [
     {
