@@ -394,9 +394,6 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
     if (currentSlide?.type === "closing") {
       return Math.max(duration, CLOSING_TOTAL_DURATION);
     }
-    if (currentSlide?.type === "extra") {
-      return duration + 2;
-    }
     let bonus = 0;
     if (currentSlide?.type === "comments" && currentSlide.comments?.length > 0) {
       bonus = Math.min(currentSlide.comments.length * 1.5, 6);
