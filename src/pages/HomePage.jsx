@@ -5,6 +5,74 @@ import { fetchNominees, addComment, fetchAllComments, fetchAllCommentsForAdmin, 
 import NomineeDetailModal from "../components/NomineeDetailModal";
 import ProfileSlideshow from "../components/ProfileSlideshow";
 
+// YEB Event Countdown Component
+const YEB_EVENT_DATE = new Date("2026-02-06T18:00:00+07:00"); // 18h ngày 06/02/2026 GMT+7
+
+function CountdownTimer() {
+  const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
+
+  function calculateTimeLeft() {
+    const now = new Date();
+    const difference = YEB_EVENT_DATE - now;
+
+    if (difference <= 0) {
+      return { days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true };
+    }
+
+    return {
+      days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+      hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+      minutes: Math.floor((difference / (1000 * 60)) % 60),
+      seconds: Math.floor((difference / 1000) % 60),
+      isExpired: false,
+    };
+  }
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  if (timeLeft.isExpired) {
+    return (
+      <div className="countdown-container countdown-expired">
+        <div className="countdown-title">🎉 YEB B2B 2025 đã bắt đầu!</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="countdown-container">
+      <div className="countdown-title">⏰ Countdown tới YEB B2B 2025</div>
+      <div className="countdown-timer">
+        <div className="countdown-item">
+          <span className="countdown-value">{String(timeLeft.days).padStart(2, "0")}</span>
+          <span className="countdown-label">Ngày</span>
+        </div>
+        <div className="countdown-separator">:</div>
+        <div className="countdown-item">
+          <span className="countdown-value">{String(timeLeft.hours).padStart(2, "0")}</span>
+          <span className="countdown-label">Giờ</span>
+        </div>
+        <div className="countdown-separator">:</div>
+        <div className="countdown-item">
+          <span className="countdown-value">{String(timeLeft.minutes).padStart(2, "0")}</span>
+          <span className="countdown-label">Phút</span>
+        </div>
+        <div className="countdown-separator">:</div>
+        <div className="countdown-item">
+          <span className="countdown-value">{String(timeLeft.seconds).padStart(2, "0")}</span>
+          <span className="countdown-label">Giây</span>
+        </div>
+      </div>
+      <div className="countdown-event-date">18:00 - 06/02/2026</div>
+    </div>
+  );
+}
+
 // Hook để theo dõi visibility của element với Intersection Observer
 function useIntersectionObserver(options = {}) {
   const [visibleItems, setVisibleItems] = useState(new Set());
@@ -642,17 +710,9 @@ export default function HomePage() {
         <div className="landing-hero-content-v2">
           {/* <h1 className="landing-hero-title-v2">🏆 ISCGP Awards 2025</h1> */}
           <p className="landing-hero-subtitle-v2">Vinh danh những cá nhân xuất sắc nhất năm 2025</p>
-          <div className="landing-hero-actions-v2">
-            {user ? (
-              <Link to="/vote" className="btn btn-gold btn-lg">
-                🗳️ Bắt đầu dự đoán
-              </Link>
-            ) : (
-              <button onClick={signInWithGoogle} className="btn btn-gold btn-lg">
-                🔐 Đăng nhập với Google
-              </button>
-            )}
-          </div>
+
+          {/* Countdown Timer */}
+          <CountdownTimer />
 
           <div className="scroll-indicator-v2" onClick={() => navigateToNominee(0)}>
             <span>Xem Profile thành viên B2B</span>
