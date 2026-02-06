@@ -113,6 +113,13 @@ export default function HonoreeManager({ allNominees, currentUser }) {
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const fileInputRef = useRef(null);
 
+  const honoreeOrder = ["peoples-choice", "dream-team", "challenger", "star-performer-pm", "star-performer-ba", "tech-leader", "star-performer-dev", "star-performer-dev-2", "unsung-hero", "innovator"];
+
+  const getHonoreeOrderIndex = (categoryId) => {
+    const index = honoreeOrder.indexOf(categoryId);
+    return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+  };
+
   // Get all selection categories (including sub-categories)
   const getAllSelectionCategories = () => {
     const selections = [];
@@ -136,7 +143,7 @@ export default function HonoreeManager({ allNominees, currentUser }) {
         });
       }
     });
-    return selections;
+    return selections.sort((a, b) => getHonoreeOrderIndex(a.id) - getHonoreeOrderIndex(b.id));
   };
 
   // Load saved winners on mount

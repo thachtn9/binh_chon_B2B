@@ -51,6 +51,13 @@ const CATEGORY_INFO = {
 
 // Helper để lấy tất cả category/sub-category theo thứ tự
 function getAllCategoriesOrdered() {
+  const honoreeOrder = ["peoples-choice", "dream-team", "challenger", "star-performer-pm", "star-performer-ba", "tech-leader", "star-performer-dev", "star-performer-dev-2", "unsung-hero", "innovator"];
+
+  const getHonoreeOrderIndex = (categoryId) => {
+    const index = honoreeOrder.indexOf(categoryId);
+    return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+  };
+
   // Mapping tên ngắn gọn cho các hạng mục chính
   const shortNames = {
     "tech-leader": "Tech Lead",
@@ -87,7 +94,7 @@ function getAllCategoriesOrdered() {
       });
     }
   });
-  return result;
+  return result.sort((a, b) => getHonoreeOrderIndex(a.id) - getHonoreeOrderIndex(b.id));
 }
 
 /**
