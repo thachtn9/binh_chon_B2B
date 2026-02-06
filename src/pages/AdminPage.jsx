@@ -75,7 +75,20 @@ export default function AdminPage() {
   const [slideshowImages, setSlideshowImages] = useState([]);
   const [slideshowUploading, setSlideshowUploading] = useState(false);
   const [slideshowUploadProgress, setSlideshowUploadProgress] = useState("");
+  const [previewImage, setPreviewImage] = useState(null);
   const slideshowFileRef = useRef(null);
+
+  // ESC key to close preview image modal
+  useEffect(() => {
+    if (!previewImage) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setPreviewImage(null);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [previewImage]);
 
   useEffect(() => {
     // Redirect if not admin
@@ -1156,15 +1169,28 @@ export default function AdminPage() {
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                   {[...slideshowImages]
-                    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+                    .sort((a, b) => new Date(b.captured_at || b.created_at || 0) - new Date(a.captured_at || a.created_at || 0))
                     .map((img, idx) => (
                       <div key={img.id} style={{ display: "flex", alignItems: "center", gap: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px", padding: "0.6rem 1rem", border: "1px solid rgba(255,255,255,0.1)" }}>
                         <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.8rem", minWidth: "24px" }}>{idx + 1}.</span>
-                        <img src={img.thumb_url || img.image_url} alt="thumbnail" style={{ height: "250px", objectFit: "cover", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.15)" }} />
-                        <a href={img.image_url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: "0.85rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {img.image_url}
-                        </a>
-                        <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.75rem", whiteSpace: "nowrap" }}>{new Date(img.created_at).toLocaleString("vi-VN")}</span>
+                        <img
+                          src={img.thumb_url || img.image_url}
+                          alt="thumbnail"
+                          style={{ height: "250px", objectFit: "cover", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.15)", cursor: "pointer", transition: "transform 0.2s, border-color 0.2s" }}
+                          onClick={() => setPreviewImage(img)}
+                          onMouseEnter={(e) => { e.target.style.transform = "scale(1.02)"; e.target.style.borderColor = "#60a5fa"; }}
+                          onMouseLeave={(e) => { e.target.style.transform = "scale(1)"; e.target.style.borderColor = "rgba(255,255,255,0.15)"; }}
+                          title="Click để xem ảnh lớn"
+                        />
+                        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.25rem", overflow: "hidden" }}>
+                          <a href={img.image_url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: "0.85rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {img.image_url}
+                          </a>
+                          <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.75rem" }}>
+                            📅 Chụp: {img.captured_at ? new Date(img.captured_at).toLocaleString("vi-VN") : "Không rõ"}
+                          </span>
+                        </div>
+                        <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.75rem", whiteSpace: "nowrap" }}>🕐 Upload: {new Date(img.created_at).toLocaleString("vi-VN")}</span>
                         <button className="btn btn-secondary" onClick={() => handleDeleteSlideshowImage(img.id)} style={{ padding: "0.2rem 0.6rem", fontSize: "0.75rem", color: "#ef4444", minWidth: "auto" }}>
                           Xóa
                         </button>
@@ -1336,6 +1362,48 @@ export default function AdminPage() {
               <button className="btn btn-primary" onClick={handleBulkUpdateAvatars} disabled={isUpdatingAvatars || !avatarToken.trim()}>
                 {isUpdatingAvatars ? "⏳ Đang cập nhật..." : "🔄 Cập nhật Avatar"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div className="modal-overlay" onClick={() => setPreviewImage(null)} style={{ zIndex: 1100 }}>
+          <div style={{ position: "relative", maxWidth: "95vw", maxHeight: "95vh" }} onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setPreviewImage(null)}
+              style={{
+                position: "absolute",
+                top: "-40px",
+                right: "0",
+                background: "rgba(255,255,255,0.2)",
+                border: "none",
+                color: "#fff",
+                fontSize: "1.5rem",
+                cursor: "pointer",
+                padding: "0.5rem 1rem",
+                borderRadius: "8px",
+                transition: "background 0.2s",
+              }}
+              onMouseEnter={(e) => (e.target.style.background = "rgba(255,255,255,0.3)")}
+              onMouseLeave={(e) => (e.target.style.background = "rgba(255,255,255,0.2)")}
+            >
+              ✕ Đóng
+            </button>
+            <img
+              src={previewImage.image_url}
+              alt="Preview"
+              style={{
+                maxWidth: "95vw",
+                maxHeight: "90vh",
+                objectFit: "contain",
+                borderRadius: "12px",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.7)",
+              }}
+            />
+            <div style={{ color: "#fff", textAlign: "center", marginTop: "1rem", fontSize: "0.9rem" }}>
+              📅 Chụp: {previewImage.captured_at ? new Date(previewImage.captured_at).toLocaleString("vi-VN") : "Không rõ"} | 🕐 Upload: {new Date(previewImage.created_at).toLocaleString("vi-VN")}
             </div>
           </div>
         </div>
