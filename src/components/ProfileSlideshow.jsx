@@ -57,6 +57,31 @@ function useImagePreloader(slides, currentIndex, preloadAhead = 10) {
   }, [currentIndex, slides, preloadAhead]);
 }
 
+// Hook: ensure extra images are preloaded before reaching extra section
+function useExtraImagePreloader(slides, currentIndex, extraStartIndex, preloadAhead = 10) {
+  const preloadedRef = useRef(new Set());
+
+  useEffect(() => {
+    if (extraStartIndex < 0) return;
+
+    const hasIntro = slides[extraStartIndex]?.type === "extra-intro";
+    const startIndex = hasIntro ? extraStartIndex + 1 : extraStartIndex;
+
+    if (startIndex >= slides.length) return;
+    if (currentIndex > startIndex) return;
+
+    const endIndex = Math.min(startIndex + preloadAhead, slides.length - 1);
+    for (let i = startIndex; i <= endIndex; i++) {
+      const slide = slides[i];
+      const url = slide?.imageUrl;
+      if (url && !preloadedRef.current.has(url)) {
+        preloadedRef.current.add(url);
+        preloadImage(url);
+      }
+    }
+  }, [slides, currentIndex, extraStartIndex, preloadAhead]);
+}
+
 // Sub-component: Full-screen image slide (opening/extra)
 function FullScreenImageSlide({ slide, isExtra = false }) {
   const [loaded, setLoaded] = useState(false);
@@ -425,6 +450,7 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
 
   // Preload images ahead
   useImagePreloader(slides, currentIndex, slideshowConfig.preloadAhead);
+  useExtraImagePreloader(slides, currentIndex, extraStartIndex, slideshowConfig.preloadAhead);
 
   const currentSlide = slides[currentIndex];
 
