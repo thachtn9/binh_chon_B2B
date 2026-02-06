@@ -287,11 +287,7 @@ export default function AdminPage() {
 
       if (exifData) {
         // Ưu tiên: DateTimeOriginal > CreateDate > DateTimeDigitized > ModifyDate
-        const captureDate =
-          exifData.DateTimeOriginal ||
-          exifData.CreateDate ||
-          exifData.DateTimeDigitized ||
-          exifData.ModifyDate;
+        const captureDate = exifData.DateTimeOriginal || exifData.CreateDate || exifData.DateTimeDigitized || exifData.ModifyDate;
 
         if (captureDate instanceof Date) {
           return captureDate.toISOString();
@@ -351,7 +347,6 @@ export default function AdminPage() {
       const updated = await fetchSlideshowImages();
       setSlideshowImages(updated);
       if (slideshowFileRef.current) slideshowFileRef.current.value = "";
-
     } catch (error) {
       console.error("Error uploading slideshow images:", error);
       alert("Lỗi upload: " + error.message);
@@ -1163,22 +1158,18 @@ export default function AdminPage() {
                   {[...slideshowImages]
                     .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
                     .map((img, idx) => (
-                    <div key={img.id} style={{ display: "flex", alignItems: "center", gap: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px", padding: "0.6rem 1rem", border: "1px solid rgba(255,255,255,0.1)" }}>
-                      <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.8rem", minWidth: "24px" }}>{idx + 1}.</span>
-                      <img
-                        src={img.thumb_url || img.image_url}
-                        alt="thumbnail"
-                        style={{ width: "56px", height: "56px", objectFit: "cover", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.15)" }}
-                      />
-                      <a href={img.image_url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: "0.85rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {img.image_url}
-                      </a>
-                      <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.75rem", whiteSpace: "nowrap" }}>{new Date(img.created_at).toLocaleString("vi-VN")}</span>
-                      <button className="btn btn-secondary" onClick={() => handleDeleteSlideshowImage(img.id)} style={{ padding: "0.2rem 0.6rem", fontSize: "0.75rem", color: "#ef4444", minWidth: "auto" }}>
-                        Xóa
-                      </button>
-                    </div>
-                  ))}
+                      <div key={img.id} style={{ display: "flex", alignItems: "center", gap: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px", padding: "0.6rem 1rem", border: "1px solid rgba(255,255,255,0.1)" }}>
+                        <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.8rem", minWidth: "24px" }}>{idx + 1}.</span>
+                        <img src={img.thumb_url || img.image_url} alt="thumbnail" style={{ height: "250px", objectFit: "cover", borderRadius: "6px", border: "1px solid rgba(255,255,255,0.15)" }} />
+                        <a href={img.image_url} target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", fontSize: "0.85rem", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {img.image_url}
+                        </a>
+                        <span style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.75rem", whiteSpace: "nowrap" }}>{new Date(img.created_at).toLocaleString("vi-VN")}</span>
+                        <button className="btn btn-secondary" onClick={() => handleDeleteSlideshowImage(img.id)} style={{ padding: "0.2rem 0.6rem", fontSize: "0.75rem", color: "#ef4444", minWidth: "auto" }}>
+                          Xóa
+                        </button>
+                      </div>
+                    ))}
                 </div>
               )}
             </div>
