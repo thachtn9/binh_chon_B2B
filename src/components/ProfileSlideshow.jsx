@@ -231,6 +231,7 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
   const [transitionType, setTransitionType] = useState("slide"); // "slide" hoặc "fade"
   const [isAnimating, setIsAnimating] = useState(false);
   const [extraQueue, setExtraQueue] = useState(() => extraImages);
+  const audioRef = useRef(null);
   const [duration, setDuration] = useState(() => {
     const saved = localStorage.getItem("slideshow_duration");
     const parsed = saved ? Number(saved) : DEFAULT_DURATION;
@@ -516,6 +517,28 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
     return () => clearInterval(id);
   }, [isPaused, effectiveDuration, currentIndex]);
 
+  // Auto-play background music (loop)
+  useEffect(() => {
+    if (!audioRef.current) return;
+    const audio = audioRef.current;
+
+    const tryPlay = async () => {
+      try {
+        await audio.play();
+      } catch (err) {
+        // Autoplay may be blocked until user interaction
+        console.warn("Background audio autoplay blocked:", err);
+      }
+    };
+
+    tryPlay();
+
+    return () => {
+      audio.pause();
+      audio.currentTime = 0;
+    };
+  }, []);
+
   // Progress bar animation
   useEffect(() => {
     if (!progressRef.current) return;
@@ -588,6 +611,7 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
   return (
     <div className="slideshow-overlay" onClick={onClose}>
       <div className={`slideshow-container ${isFullScreenSlide ? "slideshow-container-fullscreen" : ""}`} onClick={(e) => e.stopPropagation()}>
+        <audio ref={audioRef} src="/sound/bgSlideShow.mp3" autoPlay loop />
         {/* Close button */}
         <button className="slideshow-close-btn" onClick={onClose} title="Đóng (ESC)">
           ✕
