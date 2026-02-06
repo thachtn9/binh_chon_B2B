@@ -9,6 +9,13 @@ const EXTRA_HOLD_DURATION = 0.7; // seconds
 const EXTRA_FADE_DURATION = 0.4; // seconds
 const EXTRA_LINE_TOTAL = EXTRA_TYPING_DURATION + EXTRA_HOLD_DURATION + EXTRA_FADE_DURATION;
 const EXTRA_INTRO_TOTAL_DURATION = (EXTRA_INTRO_LINES.length - 1) * EXTRA_LINE_TOTAL + EXTRA_TYPING_DURATION + EXTRA_HOLD_DURATION + EXTRA_FADE_DURATION;
+const FAREWELL_LINES = [
+  { text: "XIN CẢM ƠN TẤT CẢ CHÚNG TA !", typing: 2.5, hold: 3, fade: 0.4 },
+  { text: "CHÀO TẠM BIỆT . . .", typing: 4.5, hold: 5, fade: 0.4 },
+  { text: "VÀ !", typing: 1.2, hold: 2, fade: 0.3 },
+  { text: "HẸN GẶP LẠI !!! ", typing: 2.5, hold: 5, fade: 0.4 },
+];
+const FAREWELL_TOTAL_DURATION = FAREWELL_LINES.reduce((total, line) => total + (line.typing + line.hold + line.fade), 0);
 const CLOSING_TEXT = "THANK YOU!";
 const CLOSING_TOTAL_DURATION = EXTRA_TYPING_DURATION + EXTRA_HOLD_DURATION + EXTRA_FADE_DURATION;
 
@@ -200,6 +207,39 @@ function ExtraIntroSlide() {
   );
 }
 
+// Sub-component: Farewell black slide with multi-line typing text
+function FarewellSlide() {
+  let runningDelay = 0;
+
+  return (
+    <div className="slideshow-extra-intro slideshow-farewell">
+      <div className="slideshow-extra-intro-inner">
+        {FAREWELL_LINES.map((line) => {
+          const delay = runningDelay;
+          const total = line.typing + line.hold + line.fade;
+          runningDelay += total;
+          return (
+            <div
+              key={line.text}
+              className="slideshow-extra-line"
+              style={{
+                "--delay": `${delay}s`,
+                "--typing": `${line.typing}s`,
+                "--hold": `${line.hold}s`,
+                "--fade": `${line.fade}s`,
+                "--chars": line.text.length,
+              }}
+            >
+              <span className="slideshow-extra-text">{line.text}</span>
+              <span className="slideshow-extra-caret" aria-hidden="true" />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // Sub-component: Closing slide using opening-1 image with typing text
 function ClosingSlide({ imageUrl, alt }) {
   return (
@@ -362,6 +402,10 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
 
     if (sortedExtraQueue.length > 0 && opening1) {
       result.push({
+        type: "farewell",
+        id: "farewell",
+      });
+      result.push({
         type: "closing",
         id: "closing",
         imageUrl: opening1.url,
@@ -384,13 +428,16 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
 
   const currentSlide = slides[currentIndex];
 
-  const isFullScreenSlide = currentSlide && (currentSlide.type === "opening" || currentSlide.type === "extra" || currentSlide.type === "extra-intro" || currentSlide.type === "closing" || currentSlide.type === "profile" || currentSlide.type === "comments");
+  const isFullScreenSlide = currentSlide && (currentSlide.type === "opening" || currentSlide.type === "extra" || currentSlide.type === "extra-intro" || currentSlide.type === "farewell" || currentSlide.type === "closing" || currentSlide.type === "profile" || currentSlide.type === "comments");
 
   // Calculate effective duration (base + bonus for comments)
   // Logic: +2s per comment, max +10s
   const effectiveDuration = useMemo(() => {
     if (currentSlide?.type === "extra-intro") {
       return Math.max(duration, EXTRA_INTRO_TOTAL_DURATION);
+    }
+    if (currentSlide?.type === "farewell") {
+      return Math.max(duration, FAREWELL_TOTAL_DURATION);
     }
     if (currentSlide?.type === "closing") {
       return Math.max(duration, CLOSING_TOTAL_DURATION);
@@ -423,6 +470,8 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
       }
       case "extra-intro":
         return "Ảnh bổ sung";
+      case "farewell":
+        return "Lời tạm biệt";
       case "closing":
         return "Kết thúc";
       default:
@@ -597,6 +646,8 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
         return <FullScreenImageSlide key={currentSlide.id} slide={currentSlide} isExtra />;
       case "extra-intro":
         return <ExtraIntroSlide />;
+      case "farewell":
+        return <FarewellSlide />;
       case "closing":
         return <ClosingSlide imageUrl={currentSlide.imageUrl} alt={currentSlide.alt} />;
       case "profile":
