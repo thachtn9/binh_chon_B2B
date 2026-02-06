@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import * as XLSX from "xlsx";
+import exifr from "exifr";
 import { useAuth } from "../context/AuthContext";
 import {
   getAllVoteSessions,
@@ -276,6 +277,40 @@ export default function AdminPage() {
     });
   };
 
+  // Hàm trích xuất thời gian chụp từ EXIF metadata
+  const extractCaptureDate = async (file) => {
+    try {
+      // exifr hỗ trợ đọc EXIF từ JPEG, HEIC/HEIF (iPhone), PNG, TIFF, WebP
+      const exifData = await exifr.parse(file, {
+        pick: ["DateTimeOriginal", "CreateDate", "ModifyDate", "DateTimeDigitized"],
+      });
+
+      if (exifData) {
+        // Ưu tiên: DateTimeOriginal > CreateDate > DateTimeDigitized > ModifyDate
+        const captureDate =
+          exifData.DateTimeOriginal ||
+          exifData.CreateDate ||
+          exifData.DateTimeDigitized ||
+          exifData.ModifyDate;
+
+        if (captureDate instanceof Date) {
+          return captureDate.toISOString();
+        }
+      }
+
+      // Nếu không có EXIF, dùng lastModified của file
+      if (file.lastModified) {
+        return new Date(file.lastModified).toISOString();
+      }
+
+      return null;
+    } catch (err) {
+      console.warn(`Không đọc được EXIF từ ${file.name}:`, err.message);
+      // Fallback to lastModified
+      return file.lastModified ? new Date(file.lastModified).toISOString() : null;
+    }
+  };
+
   const handleUploadSlideshowImages = async () => {
     const files = slideshowFileRef.current?.files;
     if (!files || files.length === 0) {
@@ -299,9 +334,12 @@ export default function AdminPage() {
         const file = files[i];
         setSlideshowUploadProgress(`Đang upload ${i + 1}/${total}: ${file.name}`);
         try {
+          // Trích xuất thời gian chụp từ EXIF trước khi compress
+          const capturedAt = await extractCaptureDate(file);
+
           const compressed = await compressImage(file);
           const { url, thumbUrl } = await uploadImageToImgBB(compressed, apiKey);
-          await addSlideshowImage(url, voteUser?.id, thumbUrl);
+          await addSlideshowImage(url, voteUser?.id, thumbUrl, capturedAt);
           success++;
         } catch (err) {
           console.error(`Failed to upload ${file.name}:`, err);

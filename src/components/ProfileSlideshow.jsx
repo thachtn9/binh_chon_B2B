@@ -3,13 +3,7 @@ import slideshowConfig from "../config/slideshowConfig";
 import { fetchSlideshowImages } from "../lib/supabase";
 
 const DEFAULT_DURATION = 3; // seconds
-const EXTRA_INTRO_LINES = [
-  "CHÀO CÁC BẠN !",
-  "NGÀY HÔM NAY CỦA CÁC BẠN NHƯ THẾ NÀO !",
-  "CÒN ĐÂY LÀ !",
-  "NGÀY HÔM NAY !",
-  "CỦA CHÚNG TA !",
-];
+const EXTRA_INTRO_LINES = ["CHÀO CÁC BẠN !", "NGÀY HÔM NAY CỦA CÁC BẠN NHƯ THẾ NÀO !", "CÒN ĐÂY LÀ !", "NGÀY HÔM NAY !", "CỦA CHÚNG TA !"];
 const EXTRA_TYPING_DURATION = 2.5; // seconds
 const EXTRA_HOLD_DURATION = 0.7; // seconds
 const EXTRA_FADE_DURATION = 0.4; // seconds
@@ -67,13 +61,7 @@ function FullScreenImageSlide({ slide, isExtra = false }) {
           <div className="slideshow-spinner" />
         </div>
       )}
-      <img
-        src={slide.imageUrl}
-        alt={slide.alt || ""}
-        className={`slideshow-fullscreen-img ${loaded ? "loaded" : ""}`}
-        onLoad={() => setLoaded(true)}
-        draggable={false}
-      />
+      <img src={slide.imageUrl} alt={slide.alt || ""} className={`slideshow-fullscreen-img ${loaded ? "loaded" : ""}`} onLoad={() => setLoaded(true)} draggable={false} />
     </div>
   );
 }
@@ -91,13 +79,7 @@ function ProfileImageSlide({ slide }) {
           <div className="slideshow-spinner" />
         </div>
       )}
-      <img
-        src={imageUrl}
-        alt={nominee.full_name || nominee.user_name}
-        className={`slideshow-fullscreen-img ${loaded ? "loaded" : ""}`}
-        onLoad={() => setLoaded(true)}
-        draggable={false}
-      />
+      <img src={imageUrl} alt={nominee.full_name || nominee.user_name} className={`slideshow-fullscreen-img ${loaded ? "loaded" : ""}`} onLoad={() => setLoaded(true)} draggable={false} />
       {/* Like count badge ở góc phải trên */}
       <div className="slideshow-profile-like-badge">
         <span className="slideshow-profile-like-icon">❤️</span>
@@ -139,18 +121,12 @@ function CommentsSlide({ slide }) {
               .map((comment) => (
                 <div key={comment.id} className="slideshow-comment-item-full">
                   <img
-                    src={
-                      comment.is_anonymous
-                        ? `https://ui-avatars.com/api/?name=A&size=48&background=6b7280&color=fff`
-                        : comment.commenter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.commenter_name || "User")}&size=48&background=6366f1&color=fff`
-                    }
+                    src={comment.is_anonymous ? `https://ui-avatars.com/api/?name=A&size=48&background=6b7280&color=fff` : comment.commenter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.commenter_name || "User")}&size=48&background=6366f1&color=fff`}
                     alt={comment.is_anonymous ? "Ẩn danh" : comment.commenter_name}
                     className="slideshow-comment-avatar-full"
                   />
                   <div className="slideshow-comment-content-full">
-                    <span className={`slideshow-comment-author-full ${comment.is_anonymous ? "anonymous" : ""}`}>
-                      {comment.is_anonymous ? "🎭 Ẩn danh" : comment.commenter_name || "Ẩn danh"}
-                    </span>
+                    <span className={`slideshow-comment-author-full ${comment.is_anonymous ? "anonymous" : ""}`}>{comment.is_anonymous ? "🎭 Ẩn danh" : comment.commenter_name || "Ẩn danh"}</span>
                     <p className="slideshow-comment-text-full">{comment.content}</p>
                   </div>
                 </div>
@@ -168,11 +144,7 @@ function CommentsSlide({ slide }) {
       <div className="slideshow-profile-right">
         <div className="slideshow-profile-card">
           <div className="slideshow-avatar-wrapper-full">
-            <img
-              src={nominee.url_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(nominee.full_name || nominee.user_name)}&size=300&background=6366f1&color=fff`}
-              alt={nominee.full_name || nominee.user_name}
-              className="slideshow-avatar-full"
-            />
+            <img src={nominee.url_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(nominee.full_name || nominee.user_name)}&size=300&background=6366f1&color=fff`} alt={nominee.full_name || nominee.user_name} className="slideshow-avatar-full" />
             <span className="slideshow-role-badge-full" style={{ backgroundColor: roleInfo.bg }}>
               {roleInfo.label}
             </span>
@@ -271,7 +243,7 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
   const isAnimatingRef = useRef(false); // Ref để tránh stale closure
   const currentIndexRef = useRef(0); // Ref để track currentIndex cho callbacks
   const slidesLengthRef = useRef(0); // Ref để track slides.length cho callbacks
-  
+
   // Initialize startTimeRef on mount
   useEffect(() => {
     if (startTimeRef.current === null) {
@@ -331,13 +303,13 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
 
     // 1. Opening slides (skip those with empty url)
     openingSlides.forEach((slide) => {
-        result.push({
-          type: "opening",
-          id: slide.id,
-          imageUrl: slide.url,
-          alt: slide.alt,
-        });
+      result.push({
+        type: "opening",
+        id: slide.id,
+        imageUrl: slide.url,
+        alt: slide.alt,
       });
+    });
 
     // 2. Nominee slides: profile image → comments for each
     nominees.forEach((nominee) => {
@@ -361,25 +333,33 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
     });
 
     // 3. Extra images from database (after profiles)
-    if (extraQueue.length > 0) {
+    // Sort by captured_at (oldest first), fallback to created_at
+    const sortedExtraQueue = [...extraQueue].sort((a, b) => {
+      const dateA = a.captured_at || a.created_at || "";
+      const dateB = b.captured_at || b.created_at || "";
+      return new Date(dateA).getTime() - new Date(dateB).getTime();
+    });
+
+    if (sortedExtraQueue.length > 0) {
       result.push({
         type: "extra-intro",
         id: "extra-intro",
       });
     }
 
-    extraQueue.forEach((img) => {
+    sortedExtraQueue.forEach((img) => {
       if (img.image_url && img.image_url.trim() !== "") {
         result.push({
           type: "extra",
           id: `extra-${img.id}`,
           imageUrl: img.image_url,
           alt: "",
+          capturedAt: img.captured_at, // Giữ lại để có thể hiển thị nếu cần
         });
       }
     });
 
-    if (extraQueue.length > 0 && opening1) {
+    if (sortedExtraQueue.length > 0 && opening1) {
       result.push({
         type: "closing",
         id: "closing",
@@ -403,9 +383,7 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
 
   const currentSlide = slides[currentIndex];
 
-  const isFullScreenSlide =
-    currentSlide &&
-    (currentSlide.type === "opening" || currentSlide.type === "extra" || currentSlide.type === "extra-intro" || currentSlide.type === "closing" || currentSlide.type === "profile" || currentSlide.type === "comments");
+  const isFullScreenSlide = currentSlide && (currentSlide.type === "opening" || currentSlide.type === "extra" || currentSlide.type === "extra-intro" || currentSlide.type === "closing" || currentSlide.type === "profile" || currentSlide.type === "comments");
 
   // Calculate effective duration (base + bonus for comments)
   // Logic: +2s per comment, max +10s
@@ -462,11 +440,7 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
       // VÀ đang đi tiến (next), không áp dụng khi đi lùi (prev)
       const currentSlide = slides[currentIndexRef.current];
       const nextSlide = slides[index];
-      const isProfileToComments =
-        direction === "next" &&
-        currentSlide?.type === "profile" &&
-        nextSlide?.type === "comments" &&
-        currentSlide?.nominee?.id === nextSlide?.nominee?.id;
+      const isProfileToComments = direction === "next" && currentSlide?.type === "profile" && nextSlide?.type === "comments" && currentSlide?.nominee?.id === nextSlide?.nominee?.id;
 
       // Đặt loại transition
       setTransitionType(isProfileToComments ? "fade" : "slide");
@@ -640,7 +614,7 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
         )}
 
         {/* Slide content */}
-        <div className={`slideshow-slide ${isFullScreenSlide ? "slideshow-slide-fullscreen" : ""} ${isAnimating ? (transitionType === "fade" ? `slide-fade-out` : `slide-out-${slideDirection}`) : (transitionType === "fade" ? "slide-fade-in" : "slide-in")}`}>{renderSlideContent()}</div>
+        <div className={`slideshow-slide ${isFullScreenSlide ? "slideshow-slide-fullscreen" : ""} ${isAnimating ? (transitionType === "fade" ? `slide-fade-out` : `slide-out-${slideDirection}`) : transitionType === "fade" ? "slide-fade-in" : "slide-in"}`}>{renderSlideContent()}</div>
 
         {/* Controls */}
         <div className="slideshow-controls">

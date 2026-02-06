@@ -1927,7 +1927,8 @@ export async function deleteCategoryWinner(categoryId) {
 // =============================================
 
 /**
- * Lấy danh sách ảnh slideshow theo thứ tự created_at (thêm trước hiển thị trước)
+ * Lấy danh sách ảnh slideshow
+ * Lưu ý: Sort theo captured_at (thời gian chụp) được thực hiện ở frontend (ProfileSlideshow)
  * @returns {Array} - Danh sách ảnh
  */
 export async function fetchSlideshowImages() {
@@ -1958,9 +1959,11 @@ export async function fetchSlideshowImages() {
  * Thêm ảnh mới vào slideshow
  * @param {string} imageUrl - URL ảnh (từ ImgBB)
  * @param {string} createdBy - ID user tạo
+ * @param {string} thumbUrl - URL thumbnail
+ * @param {string} capturedAt - Thời gian chụp ảnh thực tế (từ EXIF metadata)
  * @returns {Object} - Record vừa tạo
  */
-export async function addSlideshowImage(imageUrl, createdBy, thumbUrl = null) {
+export async function addSlideshowImage(imageUrl, createdBy, thumbUrl = null, capturedAt = null) {
   if (!supabase) {
     const stored = localStorage.getItem("slideshow_images");
     const images = stored ? JSON.parse(stored) : [];
@@ -1969,6 +1972,7 @@ export async function addSlideshowImage(imageUrl, createdBy, thumbUrl = null) {
       image_url: imageUrl,
       thumb_url: thumbUrl,
       created_by: createdBy,
+      captured_at: capturedAt,
       created_at: new Date().toISOString(),
     };
     images.push(newImage);
@@ -1977,13 +1981,20 @@ export async function addSlideshowImage(imageUrl, createdBy, thumbUrl = null) {
   }
 
   try {
+    const insertData = {
+      image_url: imageUrl,
+      thumb_url: thumbUrl,
+      created_by: createdBy,
+    };
+
+    // Chỉ thêm captured_at nếu có giá trị (tránh lỗi khi column chưa tồn tại)
+    if (capturedAt) {
+      insertData.captured_at = capturedAt;
+    }
+
     const { data, error } = await supabase
       .from("slideshow_images")
-      .insert({
-        image_url: imageUrl,
-        thumb_url: thumbUrl,
-        created_by: createdBy,
-      })
+      .insert(insertData)
       .select()
       .single();
 
