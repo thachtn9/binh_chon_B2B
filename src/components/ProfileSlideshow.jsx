@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import slideshowConfig from "../config/slideshowConfig";
 import { fetchSlideshowImages } from "../lib/supabase";
 
-const DEFAULT_DURATION = 3; // seconds
+const DEFAULT_DURATION = 2; // seconds
 const EXTRA_INTRO_LINES = ["CHÀO CÁC BẠN !", "NGÀY HÔM NAY CỦA CÁC BẠN NHƯ THẾ NÀO !", "CÒN ĐÂY LÀ !", "NGÀY HÔM NAY !", "CỦA CHÚNG TA !"];
 const EXTRA_TYPING_DURATION = 2.5; // seconds
 const EXTRA_HOLD_DURATION = 0.7; // seconds
@@ -289,8 +289,8 @@ function ClosingSlide({ imageUrl, alt }) {
   );
 }
 
-export default function ProfileSlideshow({ nominees, comments, extraImages = [], onClose }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+export default function ProfileSlideshow({ nominees, comments, extraImages = [], onClose, initialIndex = 0 }) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isPaused, setIsPaused] = useState(false);
   const [slideDirection, setSlideDirection] = useState("next");
   const [transitionType, setTransitionType] = useState("slide"); // "slide" hoặc "fade"

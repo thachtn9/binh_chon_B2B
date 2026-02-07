@@ -8,7 +8,7 @@ import ProfileSlideshow from "../components/ProfileSlideshow";
 // YEB Event Countdown Component
 const YEB_EVENT_DATE = new Date("2026-02-06T18:00:00+07:00"); // 18h ngày 06/02/2026 GMT+7
 
-function CountdownTimer() {
+function CountdownTimer({ onExpiredClick }) {
   const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
 
   function calculateTimeLeft() {
@@ -38,8 +38,16 @@ function CountdownTimer() {
 
   if (timeLeft.isExpired) {
     return (
-      <div className="countdown-container countdown-expired">
+      <div
+        className="countdown-container countdown-expired"
+        onClick={onExpiredClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === "Enter" && onExpiredClick?.()}
+        style={{ cursor: "pointer" }}
+      >
         <div className="countdown-title">🎉 YEB B2B 2025 đã bắt đầu!</div>
+        <div className="countdown-hint">Nhấn để xem 📸</div>
       </div>
     );
   }
@@ -313,6 +321,9 @@ export default function HomePage() {
   const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
   const [slideshowImages, setSlideshowImages] = useState([]);
   const [adminComments, setAdminComments] = useState(null);
+  const [slideshowStartIndex, setSlideshowStartIndex] = useState(0); // Index to start slideshow at
+  const [isSlideshowLoading, setIsSlideshowLoading] = useState(false); // Loading state for preloading images
+  const yebHashProcessedRef = useRef(false); // Track if #yeb hash was processed
 
   // Lazy load intersection observer
   const { visibleItems, observe } = useIntersectionObserver();
@@ -428,6 +439,16 @@ export default function HomePage() {
       if (hashProcessedRef.current) {
         hashProcessedRef.current = null;
       }
+      yebHashProcessedRef.current = false;
+      return;
+    }
+
+    // Handle #yep hash - open slideshow at extra section
+    if (hash.toLowerCase() === "#yep") {
+      if (!yebHashProcessedRef.current && !isSlideshowOpen && !isSlideshowLoading) {
+        yebHashProcessedRef.current = true;
+        handleOpenSlideshowAtExtra();
+      }
       return;
     }
 
@@ -471,7 +492,7 @@ export default function HomePage() {
         }, 500);
       }
     }
-  }, [location.hash, loading, nominees, isModalOpen]);
+  }, [location.hash, loading, nominees, isModalOpen, isSlideshowOpen, isSlideshowLoading]);
 
   // Fetch nominees and comments
   useEffect(() => {
@@ -586,8 +607,95 @@ export default function HomePage() {
     }
   };
 
+  // Preload first N images and return a promise
+  const preloadImages = (urls, count = 5) => {
+    const toLoad = urls.slice(0, count).filter(url => url && url.trim() !== "");
+    return Promise.all(
+      toLoad.map(url => new Promise((resolve) => {
+        const img = new Image();
+        img.onload = resolve;
+        img.onerror = resolve;
+        img.src = url;
+      }))
+    );
+  };
+
+  // Handle open slideshow at extra section (for #yeb hash or countdown click)
+  const handleOpenSlideshowAtExtra = async () => {
+    if (isSlideshowLoading || isSlideshowOpen) return;
+
+    setIsSlideshowLoading(true);
+
+    try {
+      // Fetch fresh extra images if not already loaded
+      let extraImgs = slideshowImages;
+      if (extraImgs.length === 0) {
+        extraImgs = await fetchSlideshowImages();
+        setSlideshowImages(extraImgs);
+      }
+
+      // Sort by captured_at (oldest first)
+      const sortedExtra = [...extraImgs].sort((a, b) => {
+        const dateA = a.captured_at || a.created_at || "";
+        const dateB = b.captured_at || b.created_at || "";
+        return new Date(dateA).getTime() - new Date(dateB).getTime();
+      });
+
+      // Preload first 5 extra images
+      const extraUrls = sortedExtra.map(img => img.image_url);
+      await preloadImages(extraUrls, 5);
+
+      // Calculate the extra-intro index
+      const { default: config } = await import("../config/slideshowConfig");
+      const openingCount = config.openingSlides.filter(s => s.url && s.url.trim() !== "").length;
+
+      // Count profile + comments slides
+      let nomineeSlideCount = 0;
+      nominees.forEach(n => {
+        if (n.url_profile && n.url_profile.trim() !== "") {
+          nomineeSlideCount++; // profile slide
+        }
+        nomineeSlideCount++; // comments slide
+      });
+
+      // extra-intro index = opening + nominee slides
+      const extraStartIdx = openingCount + nomineeSlideCount;
+      setSlideshowStartIndex(extraStartIdx);
+
+      // Prepare admin comments if needed
+      if (config.showAdminComments && voteUser?.is_admin) {
+        const rawComments = await fetchAllCommentsForAdmin();
+        const grouped = {};
+        nominees.forEach(n => { grouped[n.id] = []; });
+        rawComments.forEach(c => {
+          const mappedComment = {
+            ...c,
+            nominee_id: c.nominee.id,
+            is_anonymous: false,
+            original_is_anonymous: c.is_anonymous,
+            commenter_avatar: c.commenter_avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.commenter_name || "User")}&size=48&background=6366f1&color=fff`
+          };
+          if (!grouped[mappedComment.nominee_id]) {
+            grouped[mappedComment.nominee_id] = [];
+          }
+          grouped[mappedComment.nominee_id].push(mappedComment);
+        });
+        setAdminComments(grouped);
+      } else {
+        setAdminComments(null);
+      }
+
+      setIsSlideshowOpen(true);
+    } catch (err) {
+      console.error("Error opening slideshow at extra:", err);
+    } finally {
+      setIsSlideshowLoading(false);
+    }
+  };
+
   // Handle open slideshow
   const handleOpenSlideshow = async () => {
+    setSlideshowStartIndex(0); // Start from beginning
     try {
       const { default: config } = await import("../config/slideshowConfig");
 
@@ -712,7 +820,7 @@ export default function HomePage() {
           <p className="landing-hero-subtitle-v2">Vinh danh những cá nhân xuất sắc nhất năm 2025</p>
 
           {/* Countdown Timer */}
-          <CountdownTimer />
+          <CountdownTimer onExpiredClick={handleOpenSlideshowAtExtra} />
 
           <div className="scroll-indicator-v2" onClick={() => navigateToNominee(0)}>
             <span>Xem Profile thành viên B2B</span>
@@ -831,7 +939,18 @@ export default function HomePage() {
       <QRDonateModal isOpen={isQRModalOpen} onClose={() => setIsQRModalOpen(false)} user={user} />
 
       {/* Profile Slideshow */}
-      {isSlideshowOpen && <ProfileSlideshow nominees={nominees} comments={adminComments || comments} extraImages={slideshowImages} onClose={() => setIsSlideshowOpen(false)} />}
+      {isSlideshowOpen && <ProfileSlideshow nominees={nominees} comments={adminComments || comments} extraImages={slideshowImages} onClose={() => setIsSlideshowOpen(false)} initialIndex={slideshowStartIndex} />}
+
+      {/* Slideshow Loading Overlay */}
+      {isSlideshowLoading && (
+        <div className="slideshow-loading-overlay">
+          <div className="slideshow-loading-content">
+            <div className="slideshow-loading-spinner"></div>
+            <p className="slideshow-loading-text">Đang tải slideshow...</p>
+            <p className="slideshow-loading-hint">📸 Chuẩn bị ảnh sự kiện</p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
