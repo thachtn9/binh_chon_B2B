@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import slideshowConfig from "../config/slideshowConfig";
-import { fetchSlideshowImages } from "../lib/supabase";
 
 const DEFAULT_DURATION = 2; // seconds
 const EXTRA_INTRO_LINES = ["CHÀO CÁC BẠN !", "NGÀY HÔM NAY CỦA CÁC BẠN NHƯ THẾ NÀO !", "CÒN ĐÂY LÀ !", "NGÀY HÔM NAY !", "CỦA CHÚNG TA !"];
@@ -13,7 +12,7 @@ const FAREWELL_LINES = [
   { text: "XIN CẢM ƠN TẤT CẢ CHÚNG TA !", typing: 2.5, hold: 3, fade: 0.4 },
   { text: "CHÀO TẠM BIỆT . . .", typing: 4.5, hold: 5, fade: 0.4 },
   { text: "VÀ !", typing: 1.2, hold: 2, fade: 0.3 },
-  { text: "HẸN GẶP LẠI !!! ", typing: 2.5, hold: 5, fade: 0.4 },
+  { text: "HẸN GẶP LẠI TẠI SINH NHẬT B2B NĂM 2027 ", typing: 2.5, hold: 5, fade: 0.4 },
 ];
 const FAREWELL_TOTAL_DURATION = FAREWELL_LINES.reduce((total, line) => total + (line.typing + line.hold + line.fade), 0);
 const CLOSING_TEXT = "THANK YOU!";
@@ -41,36 +40,18 @@ function preloadImage(url) {
 // Hook: preload images ahead of current index
 function useImagePreloader(slides, currentIndex, preloadAhead = 10) {
   const preloadedRef = useRef(new Set());
+  const lastPreloadedIndexRef = useRef(-1);
 
   useEffect(() => {
-    for (let i = 0; i <= preloadAhead; i++) {
-      const targetIndex = currentIndex + i;
-      if (targetIndex >= slides.length) break;
+    if (slides.length === 0) return;
 
-      const slide = slides[targetIndex];
-      const url = slide?.imageUrl;
-      if (url && !preloadedRef.current.has(url)) {
-        preloadedRef.current.add(url);
-        preloadImage(url);
-      }
+    if (lastPreloadedIndexRef.current >= slides.length) {
+      lastPreloadedIndexRef.current = -1;
     }
-  }, [currentIndex, slides, preloadAhead]);
-}
 
-// Hook: ensure extra images are preloaded before reaching extra section
-function useExtraImagePreloader(slides, currentIndex, extraStartIndex, preloadAhead = 10) {
-  const preloadedRef = useRef(new Set());
-
-  useEffect(() => {
-    if (extraStartIndex < 0) return;
-
-    const hasIntro = slides[extraStartIndex]?.type === "extra-intro";
-    const startIndex = hasIntro ? extraStartIndex + 1 : extraStartIndex;
-
-    if (startIndex >= slides.length) return;
-    if (currentIndex > startIndex) return;
-
+    const startIndex = Math.max(lastPreloadedIndexRef.current + 1, currentIndex);
     const endIndex = Math.min(startIndex + preloadAhead, slides.length - 1);
+
     for (let i = startIndex; i <= endIndex; i++) {
       const slide = slides[i];
       const url = slide?.imageUrl;
@@ -79,8 +60,11 @@ function useExtraImagePreloader(slides, currentIndex, extraStartIndex, preloadAh
         preloadImage(url);
       }
     }
-  }, [slides, currentIndex, extraStartIndex, preloadAhead]);
+
+    lastPreloadedIndexRef.current = Math.max(lastPreloadedIndexRef.current, endIndex);
+  }, [currentIndex, slides, preloadAhead]);
 }
+
 
 // Sub-component: Full-screen image slide (opening/extra)
 function FullScreenImageSlide({ slide, isExtra = false }) {
@@ -333,32 +317,6 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
     });
   }, [extraImages]);
 
-  // Poll DB every 5s to append newly uploaded extra images to the queue
-  useEffect(() => {
-    let isActive = true;
-
-    const poll = async () => {
-      try {
-        const data = await fetchSlideshowImages();
-        if (!isActive || !data || data.length === 0) return;
-        setExtraQueue((prev) => {
-          const existing = new Set(prev.map((img) => img.id));
-          const newOnes = data.filter((img) => !existing.has(img.id));
-          if (newOnes.length === 0) return prev;
-          return [...prev, ...newOnes];
-        });
-      } catch (err) {
-        console.error("Error polling slideshow images:", err);
-      }
-    };
-
-    poll();
-    const id = setInterval(poll, 5000);
-    return () => {
-      isActive = false;
-      clearInterval(id);
-    };
-  }, []);
 
   // Build unified slides array
   const slides = useMemo(() => {
@@ -448,9 +406,13 @@ export default function ProfileSlideshow({ nominees, comments, extraImages = [],
     slidesLengthRef.current = slides.length;
   }, [slides.length]);
 
+  const preloadAhead = useMemo(() => {
+    if (extraStartIndex < 0) return slideshowConfig.preloadAhead;
+    return currentIndex >= extraStartIndex ? 2 : slideshowConfig.preloadAhead;
+  }, [currentIndex, extraStartIndex]);
+
   // Preload images ahead
-  useImagePreloader(slides, currentIndex, slideshowConfig.preloadAhead);
-  useExtraImagePreloader(slides, currentIndex, extraStartIndex, slideshowConfig.preloadAhead);
+  useImagePreloader(slides, currentIndex, preloadAhead);
 
   const currentSlide = slides[currentIndex];
 

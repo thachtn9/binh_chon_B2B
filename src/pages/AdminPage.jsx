@@ -75,6 +75,16 @@ export default function AdminPage() {
   const [slideshowImages, setSlideshowImages] = useState([]);
   const [slideshowUploading, setSlideshowUploading] = useState(false);
   const [slideshowUploadProgress, setSlideshowUploadProgress] = useState("");
+  const [slideshowUploadNotice, setSlideshowUploadNotice] = useState("");
+  const [slideshowUploadStats, setSlideshowUploadStats] = useState({
+    current: 0,
+    total: 0,
+    success: 0,
+    failed: 0,
+    fileName: "",
+    phase: "",
+  });
+  const [slideshowDragActive, setSlideshowDragActive] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
   const slideshowFileRef = useRef(null);
 
@@ -334,14 +344,29 @@ export default function AdminPage() {
     }
 
     setSlideshowUploading(true);
+    setSlideshowUploadNotice("");
     const total = files.length;
     let success = 0;
     let failed = 0;
+    setSlideshowUploadStats({
+      current: 0,
+      total,
+      success: 0,
+      failed: 0,
+      fileName: "",
+      phase: "uploading",
+    });
 
     try {
       for (let i = 0; i < total; i++) {
         const file = files[i];
         setSlideshowUploadProgress(`Đang upload ${i + 1}/${total}: ${file.name}`);
+        setSlideshowUploadStats((prev) => ({
+          ...prev,
+          current: i + 1,
+          fileName: file.name,
+          phase: "uploading",
+        }));
         try {
           // Trích xuất thời gian chụp từ EXIF trước khi compress
           const capturedAt = await extractCaptureDate(file);
@@ -350,9 +375,17 @@ export default function AdminPage() {
           const { url, thumbUrl } = await uploadImageToImgBB(compressed, apiKey);
           await addSlideshowImage(url, voteUser?.id, thumbUrl, capturedAt);
           success++;
+          setSlideshowUploadStats((prev) => ({
+            ...prev,
+            success: prev.success + 1,
+          }));
         } catch (err) {
           console.error(`Failed to upload ${file.name}:`, err);
           failed++;
+          setSlideshowUploadStats((prev) => ({
+            ...prev,
+            failed: prev.failed + 1,
+          }));
         }
       }
 
@@ -366,6 +399,51 @@ export default function AdminPage() {
     } finally {
       setSlideshowUploading(false);
       setSlideshowUploadProgress("");
+      if (success > 0 && failed === 0) {
+        setSlideshowUploadNotice(`Upload thành công ${success}/${total} ảnh.`);
+      } else if (success > 0 && failed > 0) {
+        setSlideshowUploadNotice(`Upload xong: ${success} thành công, ${failed} lỗi.`);
+      } else if (failed > 0) {
+        setSlideshowUploadNotice(`Upload thất bại ${failed}/${total} ảnh.`);
+      }
+      setSlideshowUploadStats((prev) => ({
+        ...prev,
+        phase: "done",
+      }));
+      setTimeout(() => {
+        setSlideshowUploadStats({
+          current: 0,
+          total: 0,
+          success: 0,
+          failed: 0,
+          fileName: "",
+          phase: "",
+        });
+      }, 1200);
+    }
+  };
+
+  const handleSlideshowDragOver = (e) => {
+    e.preventDefault();
+    setSlideshowDragActive(true);
+  };
+
+  const handleSlideshowDragLeave = (e) => {
+    e.preventDefault();
+    setSlideshowDragActive(false);
+  };
+
+  const handleSlideshowDrop = (e) => {
+    e.preventDefault();
+    setSlideshowDragActive(false);
+
+    const files = Array.from(e.dataTransfer?.files || []).filter((file) => file.type.startsWith("image/"));
+    if (files.length === 0) return;
+
+    if (slideshowFileRef.current) {
+      const dataTransfer = new DataTransfer();
+      files.forEach((file) => dataTransfer.items.add(file));
+      slideshowFileRef.current.files = dataTransfer.files;
     }
   };
 
@@ -1153,6 +1231,22 @@ export default function AdminPage() {
               {/* Upload form */}
               <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: "12px", padding: "1.5rem", marginBottom: "2rem" }}>
                 <h4 style={{ color: "#fff", marginBottom: "1rem" }}>Upload ảnh</h4>
+                <div
+                  onDragOver={handleSlideshowDragOver}
+                  onDragLeave={handleSlideshowDragLeave}
+                  onDrop={handleSlideshowDrop}
+                  style={{
+                    border: slideshowDragActive ? "2px dashed #60a5fa" : "2px dashed rgba(255,255,255,0.2)",
+                    background: slideshowDragActive ? "rgba(96,165,250,0.12)" : "rgba(255,255,255,0.03)",
+                    borderRadius: "12px",
+                    padding: "1rem",
+                    marginBottom: "1rem",
+                    transition: "border-color 0.2s ease, background 0.2s ease",
+                  }}
+                >
+                  <div style={{ color: "rgba(255,255,255,0.75)", fontSize: "0.9rem", marginBottom: "0.4rem" }}>Keo tha nhieu anh vao day de upload</div>
+                  <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem" }}>Hoac chon file ben duoi</div>
+                </div>
                 <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
                   <input ref={slideshowFileRef} type="file" accept="image/*" multiple style={{ color: "#fff", fontSize: "0.9rem" }} />
                   <button className="btn btn-primary" onClick={handleUploadSlideshowImages} disabled={slideshowUploading}>
@@ -1160,6 +1254,32 @@ export default function AdminPage() {
                   </button>
                 </div>
                 {slideshowUploadProgress && <div style={{ color: "rgba(255,255,255,0.7)", fontSize: "0.85rem", marginTop: "0.75rem" }}>{slideshowUploadProgress}</div>}
+                {slideshowUploadStats.total > 0 && (
+                  <div style={{ marginTop: "0.75rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", color: "rgba(255,255,255,0.7)", fontSize: "0.8rem" }}>
+                      <span>
+                        Tiến trình: {slideshowUploadStats.current}/{slideshowUploadStats.total}
+                      </span>
+                      <span>
+                        Thành công: {slideshowUploadStats.success} | Lỗi: {slideshowUploadStats.failed}
+                      </span>
+                    </div>
+                    <div style={{ height: "8px", borderRadius: "999px", background: "rgba(255,255,255,0.12)", overflow: "hidden", marginTop: "0.5rem" }}>
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${Math.min(100, Math.round((slideshowUploadStats.current / slideshowUploadStats.total) * 100))}%`,
+                          background: "linear-gradient(90deg, #22c55e, #3b82f6)",
+                          transition: "width 0.2s ease",
+                        }}
+                      />
+                    </div>
+                    {slideshowUploadStats.fileName && (
+                      <div style={{ color: "rgba(255,255,255,0.55)", fontSize: "0.78rem", marginTop: "0.4rem" }}>File: {slideshowUploadStats.fileName}</div>
+                    )}
+                  </div>
+                )}
+                {slideshowUploadNotice && <div style={{ color: "#22c55e", fontSize: "0.85rem", marginTop: "0.6rem" }}>{slideshowUploadNotice}</div>}
               </div>
 
               {/* Image list */}
